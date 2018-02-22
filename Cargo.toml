@@ -1,0 +1,10 @@
+[package]
+name = "sfxr"
+version = "0.1.0"
+authors = ["Teemu Erkkola <teemu.erkkola@iki.fi>"]
+
+[dependencies]
+rand = "0.4"
+
+[dev-dependencies]
+sdl2 = "0.31.0"                         # SDL2 bindings for Rust
