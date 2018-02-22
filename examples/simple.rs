@@ -4,29 +4,18 @@ extern crate sdl2;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::time::Duration;
 
-struct Sample<'a> {
-    volume: f32,
-    data: &'a [f32],
-    pos: usize
+struct Sample {
+    generator: sfxr::Generator
 }
 
-impl<'a> AudioCallback for Sample<'a> {
+impl AudioCallback for Sample {
     type Channel = f32;
 
     fn callback(&mut self, out: &mut [f32]) {
-        for x in out.iter_mut() {
-            *x = self.data.get(self.pos).unwrap_or(&0.0) * self.volume;
-            self.pos += 1;
-        }
+        self.generator.generate(out)
     }
 }
 fn main() {
-    let mut buffer: [f32; 44_100] = [0.0; 44_100];
-    let sample = sfxr::Sample::new();
-    let mut generator = sfxr::Generator::new(sample);
-    generator.generate(&mut buffer);
-
-    //buffer.iter().for_each(|v| println!("{}", v));
     let sdl_context = sdl2::init().unwrap();
     let audio_subsystem = sdl_context.audio().unwrap();
 
@@ -36,14 +25,11 @@ fn main() {
         samples: None
     };
 
-    let device = audio_subsystem.open_playback(None, &desired_spec, |spec| {
-        println!("# {:?}", spec);
+    let sample = sfxr::Sample::new();
+    let generator = sfxr::Generator::new(sample);
 
-        Sample {
-            volume: 0.25,
-            data: &buffer,
-            pos: 0
-        }
+    let device = audio_subsystem.open_playback(None, &desired_spec, |_spec| {
+        Sample { generator }
     }).unwrap();
 
     device.resume();
