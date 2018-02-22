@@ -205,19 +205,6 @@ impl Generator {
                 self.rep_time = 0;
                 self.reset(true);
             }
-            /*
-               for(int i=0;i<length;i++)
-               {
-               if(!playing_sample)
-               break;
-
-               rep_time++;
-               if(rep_limit!=0 && rep_time>=rep_limit)
-               {
-               rep_time=0;
-               ResetSample(true);
-               }
-               */
 
             self.arp_time += 1;
 
@@ -229,86 +216,21 @@ impl Generator {
             self.fslide += self.fdslide;
             self.fperiod = (self.fperiod * self.fslide).min(self.fmaxperiod);
 
-            /*
-            // frequency envelopes/arpeggios
-            arp_time++;
-            if(arp_limit!=0 && arp_time>=arp_limit)
-            {
-            arp_limit=0;
-            fperiod*=arp_mod;
-            }
-            fslide+=fdslide;
-            fperiod*=fslide;
-            if(fperiod>fmaxperiod)
-            {
-            fperiod=fmaxperiod;
-            if(p_freq_limit>0.0f)
-            playing_sample=false;
-            }
-            */
-
             self.vib_phase += self.vib_speed;
             let vibrato = 1.0 + self.vib_phase.sin() * self.vib_amp;
 
             let period = ((vibrato * self.fperiod) as i32).max(8);
 
-            /*
-               float rfperiod=fperiod;
-               if(vib_amp>0.0f)
-               {
-               vib_phase+=vib_speed;
-               rfperiod=fperiod*(1.0+sin(vib_phase)*vib_amp);
-               }
-               period=(int)rfperiod;
-               if(period<8) period=8;
-               */
             self.square_duty = (self.square_duty + self.square_slide).min(0.5).max(0.0);
-
-            /*
-               square_duty+=square_slide;
-               if(square_duty<0.0f) square_duty=0.0f;
-               if(square_duty>0.5f) square_duty=0.5f;
-               */
 
             self.envelope.advance();
             self.env_vol = self.envelope.volume();
 
-            /*
-            // volume envelope
-            env_time++;
-            if(env_time>env_length[env_stage])
-            {
-            env_time=0;
-            env_stage++;
-            if(env_stage==3)
-            playing_sample=false;
-            }
-            if(env_stage==0)
-            env_vol=(float)env_time/env_length[0];
-            if(env_stage==1)
-            env_vol=1.0f+pow(1.0f-(float)env_time/env_length[1], 1.0f)*2.0f*p_env_punch;
-            if(env_stage==2)
-            env_vol=1.0f-(float)env_time/env_length[2];
-
-*/
             self.fphase += self.fdphase;
 
             if self.flthp_d != 0.0 {
                 self.flthp = (self.flthp * self.flthp_d).min(0.1).max(0.00001);
             }
-            /*
-            // phaser step
-            fphase+=fdphase;
-            iphase=abs((int)fphase);
-            if(iphase>1023) iphase=1023;
-
-            if(flthp_d!=0.0f)
-            {
-            flthp*=flthp_d;
-            if(flthp<0.00001f) flthp=0.00001f;
-            if(flthp>0.1f) flthp=0.1f;
-            }
-            */
 
             let mut ssample = 0.0;
 
@@ -323,21 +245,6 @@ impl Generator {
                     }
                 }
 
-                /*
-                   float ssample=0.0f;
-                   for(int si=0;si<8;si++) // 8x supersampling
-                   {
-                   float sample=0.0f;
-                   phase++;
-                   if(phase>=period)
-                   {
-                //				phase=0;
-                phase%=period;
-                if(wave_type==3)
-                for(int i=0;i<32;i++)
-                noise_buffer[i]=frnd(2.0f)-1.0f;
-                }
-                */
                 let fp = self.phase as f32 / period as f32;
                 sample = match self.sample.wave_type {
                     WaveType::Square => if fp < self.square_duty { 0.5 } else { -0.5 },
@@ -345,28 +252,6 @@ impl Generator {
                     WaveType::Sine => (fp * 2.0 * PI).sin(),
                     WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
                 };
-                /*
-                // base waveform
-                float fp=(float)phase/period;
-                switch(wave_type)
-                {
-                case 0: // square
-                if(fp<square_duty)
-                sample=0.5f;
-                else
-                sample=-0.5f;
-                break;
-                case 1: // sawtooth
-                sample=1.0f-fp*2;
-                break;
-                case 2: // sine
-                sample=(float)sin(fp*2*PI);
-                break;
-                case 3: // noise
-                sample=noise_buffer[phase*32/period];
-                break;
-                }
-                */
 
                 sample = {
                     // Low pass filter
@@ -383,67 +268,20 @@ impl Generator {
                     }
 
                     self.fltp += self.fltdp;
-                    /*
-                    // lp filter
-                    float pp=fltp;
-                    fltw*=fltw_d;
-                    if(fltw<0.0f) fltw=0.0f;
-                    if(fltw>0.1f) fltw=0.1f;
-                    if(p_lpf_freq!=1.0f)
-                    {
-                    fltdp+=(sample-fltp)*fltw;
-                    fltdp-=fltdp*fltdmp;
-                    }
-                    else
-                    {
-                    fltp=sample;
-                    fltdp=0.0f;
-                    }
-                    fltp+=fltdp;
-                    */
 
                     // High pass filter
                     self.fltphp += self.fltp - pp;
                     self.fltphp -= self.fltphp * self.flthp;
-
-                    /*
-                    // hp filter
-                    fltphp+=fltp-pp;
-                    fltphp-=fltphp*flthp;
-                    sample=fltphp;
-                    */
                     self.fltphp
                 };
 
                 sample = self.phaser.phase(self.fphase, sample);
 
                 ssample += sample * self.env_vol;
-
-                /*
-                // phaser
-                phaser_buffer[ipp&1023]=sample;
-                sample+=phaser_buffer[(ipp-iphase+1024)&1023];
-                ipp=(ipp+1)&1023;
-                // final accumulation and envelope application
-                ssample+=sample*env_vol;
-                }
-                */
             }
 
             // Average supersamples, apply volume, limit to [-1.0..1.0]
             *buffer_value = (ssample * self.volume / 8.0).min(1.0).max(-1.0);
-            /*
-               ssample=ssample/8*master_vol;
-
-               ssample*=2.0f*sound_vol;
-
-               if(buffer!=NULL)
-               {
-               if(ssample>1.0f) ssample=1.0f;
-               if(ssample<-1.0f) ssample=-1.0f;
-             *buffer++=ssample;
-             }
-             */
         });
     }
     pub fn reset(&mut self, restart: bool) {
@@ -457,17 +295,6 @@ impl Generator {
         self.fdslide = -(self.sample.freq_dramp as f64).powi(3) * 0.000001;
         self.square_duty = 0.5 - self.sample.duty * 0.5;
         self.square_slide = -self.sample.duty_ramp * 0.00005;
-        /*
-           if(!restart)
-           phase=0;
-           fperiod=100.0/(p_base_freq*p_base_freq+0.001);
-           period=(int)fperiod;
-           fmaxperiod=100.0/(p_freq_limit*p_freq_limit+0.001);
-           fslide=1.0-pow((double)p_freq_ramp, 3.0)*0.01;
-           fdslide=-pow((double)p_freq_dramp, 3.0)*0.000001;
-           square_duty=0.5f-p_duty*0.5f;
-           square_slide=-p_duty_ramp*0.00005f;
-           */
 
         self.arp_mod = if self.sample.arp_mod >= 0.0 {
             1.0 - (self.sample.arp_mod as f64).powf(2.0) * 0.9
@@ -481,31 +308,12 @@ impl Generator {
         if self.sample.arp_speed == 1.0 {
             self.arp_limit = 0;
         }
-        /*
-           if(p_arp_mod>=0.0f)
-           arp_mod=1.0-pow((double)p_arp_mod, 2.0)*0.9;
-           else
-           arp_mod=1.0+pow((double)p_arp_mod, 2.0)*10.0;
-           arp_time=0;
-           arp_limit=(int)(pow(1.0f-p_arp_speed, 2.0f)*20000+32);
-           if(p_arp_speed==1.0f)
-           arp_limit=0;
-           */
 
         if !restart {
             self.fltp = 0.0;
             self.fltdp = 0.0;
             self.fltw = self.sample.lpf_freq.powi(3) * 0.1;
             self.fltw_d = 1.0 + self.sample.lpf_ramp * 0.0001;
-            /*
-               if(!restart)
-               {
-            // reset filter
-            fltp=0.0f;
-            fltdp=0.0f;
-            fltw=pow(p_lpf_freq, 3.0f)*0.1f;
-            fltw_d=1.0f+p_lpf_ramp*0.0001f;
-            */
 
             self.fltdmp = 5.0 / (1.0 + self.sample.lpf_resonance.powi(2) * 20.0) * (0.01 + self.fltw);
             if self.fltdmp > 0.8 {
@@ -515,23 +323,10 @@ impl Generator {
             self.fltphp = 0.0;
             self.flthp = self.sample.hpf_freq.powi(2) * 0.1;
             self.flthp_d = 1.0 + self.sample.hpf_ramp * 0.0003;
-            /*
-               fltdmp=5.0f/(1.0f+pow(p_lpf_resonance, 2.0f)*20.0f)*(0.01f+fltw);
-               if(fltdmp>0.8f) fltdmp=0.8f;
-               fltphp=0.0f;
-               flthp=pow(p_hpf_freq, 2.0f)*0.1f;
-               flthp_d=1.0+p_hpf_ramp*0.0003f;
-               */
 
             self.vib_phase = 0.0;
             self.vib_speed = self.sample.vib_speed.powi(2) * 0.01;
             self.vib_amp = self.sample.vib_strength * 0.5;
-            /*
-            // reset vibrato
-            vib_phase=0.0f;
-            vib_speed=pow(p_vib_speed, 2.0f)*0.01f;
-            vib_amp=p_vib_strength*0.5f;
-            */
 
             self.env_vol = 0.0;
 
@@ -539,15 +334,6 @@ impl Generator {
             let sustain = (self.sample.env_sustain.powi(2) * 100_000.0) as u32;
             let decay = (self.sample.env_decay.powi(2) * 100_000.0) as u32;
             self.envelope.reset(attack, sustain, decay, self.sample.env_punch);
-            /*
-            // reset envelope
-            env_vol=0.0f;
-            env_stage=0;
-            env_time=0;
-            env_length[0]=(int)(p_env_attack*p_env_attack*100000.0f);
-            env_length[1]=(int)(p_env_sustain*p_env_sustain*100000.0f);
-            env_length[2]=(int)(p_env_decay*p_env_decay*100000.0f);
-            */
 
             self.fphase == self.sample.pha_offset.powi(2) * 1020.0;
 
@@ -561,15 +347,6 @@ impl Generator {
                 self.fdphase = -self.fdphase;
             }
 
-            /*
-               fphase=pow(p_pha_offset, 2.0f)*1020.0f;
-               if(p_pha_offset<0.0f) fphase=-fphase;
-               fdphase=pow(p_pha_ramp, 2.0f)*1.0f;
-               if(p_pha_ramp<0.0f) fdphase=-fdphase;
-               iphase=abs((int)fphase);
-               ipp=0;
-               */
-
             self.phaser = Phaser::new();
             let mut rng = rand::weak_rng();
             self.noise_buffer.iter_mut().for_each(|v| {
@@ -582,19 +359,6 @@ impl Generator {
             if self.sample.repeat_speed == 0.0 {
                 self.rep_limit = 0;
             }
-            /*
-               for(int i=0;i<1024;i++)
-               phaser_buffer[i]=0.0f;
-
-               for(int i=0;i<32;i++)
-               noise_buffer[i]=frnd(2.0f)-1.0f;
-
-               rep_time=0;
-               rep_limit=(int)(pow(1.0f-p_repeat_speed, 2.0f)*20000+32);
-               if(p_repeat_speed==0.0f)
-               rep_limit=0;
-               }
-               */
         }
     }
 }
