@@ -1,10 +1,9 @@
 extern crate rand;
-use rand::Rng;
+use rand::{Rng, XorShiftRng};
 
 
-#[derive(PartialEq)]
+#[derive(PartialEq,Copy,Clone)]
 pub enum WaveType { Square, Triangle, Sine, Noise }
-
 pub struct Sample {
     wave_type: WaveType,
     pub base_freq: f32,
@@ -105,19 +104,16 @@ pub struct Generator {
 
     pub volume: f32,
     playing_sample: bool,
-    phase: i32,
+    oscillator: Oscillator,
     fperiod: f64,
     fmaxperiod: f64,
     fslide: f64,
     fdslide: f64,
-    square_duty: f32,
     square_slide: f32,
     envelope: Envelope,
-    env_vol: f32,
     fphase: f32,
     fdphase: f32,
     phaser: Phaser,
-    noise_buffer: [f32; 32],
     fltp: f32,
     fltdp: f32,
     fltw: f32,
@@ -134,6 +130,15 @@ pub struct Generator {
     arp_time: i32,
     arp_limit: i32,
     arp_mod: f64,
+}
+
+struct Oscillator {
+    wave_type: WaveType,
+    square_duty: f32,
+    period: u32,
+    phase: u32,
+    noise_buffer: [f32; 32],
+    rng:XorShiftRng
 }
 
 enum EnvelopeStage { Attack, Sustain, Decay, End }
@@ -154,23 +159,21 @@ struct Phaser {
 impl Generator {
     pub fn new(s: Sample) -> Generator {
         s.assert_valid();
+        let wave_type = s.wave_type;
         let mut g = Generator {
             sample: s,
             volume: 0.2,
             playing_sample: true,
-            phase: 0,
+            oscillator: Oscillator::new(wave_type),
             fperiod: 0.0,
             fmaxperiod: 0.0,
             fslide: 0.0,
             fdslide: 0.0,
-            square_duty: 0.0,
             square_slide: 0.0,
             envelope: Envelope::new(),
-            env_vol: 0.0,
             fphase: 0.0,
             fdphase: 0.0,
             phaser: Phaser::new(),
-            noise_buffer: [0.0; 32],
             fltp: 0.0,
             fltdp: 0.0,
             fltw: 0.0,
@@ -194,7 +197,6 @@ impl Generator {
         g
     }
     pub fn generate(&mut self, buffer: &mut [f32]) {
-        let mut rng = rand::weak_rng();
         buffer.iter_mut().for_each(|buffer_value| {
             if !self.playing_sample {
                 return
@@ -219,12 +221,11 @@ impl Generator {
             self.vib_phase += self.vib_speed;
             let vibrato = 1.0 + self.vib_phase.sin() * self.vib_amp;
 
-            let period = ((vibrato * self.fperiod) as i32).max(8);
-
-            self.square_duty = (self.square_duty + self.square_slide).min(0.5).max(0.0);
+            self.oscillator.period = ((vibrato * self.fperiod) as u32).max(8);
+            self.oscillator.square_slide(self.square_slide);
 
             self.envelope.advance();
-            self.env_vol = self.envelope.volume();
+            let env_vol = self.envelope.volume();
 
             self.fphase += self.fdphase;
 
@@ -235,23 +236,7 @@ impl Generator {
             let mut ssample = 0.0;
 
             for _ in 0..8 {
-                let mut sample;
-                self.phase += 1;
-                if self.phase >= period {
-                    self.phase = self.phase % period;
-                    if self.sample.wave_type == WaveType::Noise {
-                        self.noise_buffer.iter_mut()
-                            .for_each(|v| *v = rng.next_f32() * 2.0 - 1.0);
-                    }
-                }
-
-                let fp = self.phase as f32 / period as f32;
-                sample = match self.sample.wave_type {
-                    WaveType::Square => if fp < self.square_duty { 0.5 } else { -0.5 },
-                    WaveType::Triangle => 1.0 - fp * 2.0,
-                    WaveType::Sine => (fp * 2.0 * PI).sin(),
-                    WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
-                };
+                let mut sample = self.oscillator.next().unwrap();
 
                 sample = {
                     // Low pass filter
@@ -277,7 +262,7 @@ impl Generator {
 
                 sample = self.phaser.phase(self.fphase, sample);
 
-                ssample += sample * self.env_vol;
+                ssample += sample * env_vol;
             }
 
             // Average supersamples, apply volume, limit to [-1.0..1.0]
@@ -286,14 +271,15 @@ impl Generator {
     }
     pub fn reset(&mut self, restart: bool) {
         if !restart {
-            self.phase = 0;
+            self.oscillator.phase = 0;
         }
 
         self.fperiod = 100.0 / ((self.sample.base_freq as f64).powi(2) + 0.001);
         self.fmaxperiod = 100.0 / ((self.sample.freq_limit as f64).powi(2) + 0.001);
         self.fslide = 1.0 - (self.sample.freq_ramp as f64).powi(3) * 0.01;
         self.fdslide = -(self.sample.freq_dramp as f64).powi(3) * 0.000001;
-        self.square_duty = 0.5 - self.sample.duty * 0.5;
+        self.oscillator.wave_type = self.sample.wave_type;
+        self.oscillator.square_duty = 0.5 - self.sample.duty * 0.5;
         self.square_slide = -self.sample.duty_ramp * 0.00005;
 
         self.arp_mod = if self.sample.arp_mod >= 0.0 {
@@ -328,8 +314,6 @@ impl Generator {
             self.vib_speed = self.sample.vib_speed.powi(2) * 0.01;
             self.vib_amp = self.sample.vib_strength * 0.5;
 
-            self.env_vol = 0.0;
-
             let attack = (self.sample.env_attack.powi(2) * 100_000.0) as u32;
             let sustain = (self.sample.env_sustain.powi(2) * 100_000.0) as u32;
             let decay = (self.sample.env_decay.powi(2) * 100_000.0) as u32;
@@ -348,10 +332,7 @@ impl Generator {
             }
 
             self.phaser = Phaser::new();
-            let mut rng = rand::weak_rng();
-            self.noise_buffer.iter_mut().for_each(|v| {
-                *v = rng.next_f32() * 2.0 - 1.0;
-            });
+            self.oscillator.reset_noise();
 
             self.rep_time = 0;
             self.rep_limit = ((1.0 - self.sample.repeat_speed).powi(2) * 20_000.0 * 32.0) as i32;
@@ -365,6 +346,49 @@ impl Generator {
 
 const PI: f32 = 3.14159265359;
 
+impl Oscillator {
+    fn new(wave_type: WaveType) -> Oscillator {
+        Oscillator  {
+            wave_type,
+            square_duty: 0.5,
+            period: 8,
+            phase: 0,
+            noise_buffer: [0.0; 32],
+            rng: rand::weak_rng()
+        }
+    }
+    fn reset_noise(&mut self) {
+        for v in self.noise_buffer.iter_mut() {
+            *v = self.rng.next_f32() * 2.0 - 1.0;
+        }
+    }
+    fn square_slide(&mut self, amount: f32) {
+        self.square_duty = (self.square_duty + amount).min(0.5).max(0.0);
+    }
+}
+impl Iterator for Oscillator {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<f32> {
+        self.phase += 1;
+        if self.phase >= self.period {
+            self.phase = self.phase % self.period;
+            if self.wave_type == WaveType::Noise {
+                self.reset_noise();
+            }
+        }
+
+        let fp = self.phase as f32 / self.period as f32;
+        let sample = match self.wave_type {
+            WaveType::Square => if fp < self.square_duty { 0.5 } else { -0.5 },
+            WaveType::Triangle => 1.0 - fp * 2.0,
+            WaveType::Sine => (fp * 2.0 * PI).sin(),
+            WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
+        };
+
+        Some(sample)
+    }
+}
 impl Envelope {
     fn new() -> Envelope {
         Envelope {
