@@ -105,6 +105,7 @@ pub struct Generator {
     pub volume: f32,
     playing_sample: bool,
     oscillator: Oscillator,
+    hlpf: HighLowPassFilter,
     fperiod: f64,
     fmaxperiod: f64,
     fslide: f64,
@@ -114,14 +115,6 @@ pub struct Generator {
     fphase: f32,
     fdphase: f32,
     phaser: Phaser,
-    fltp: f32,
-    fltdp: f32,
-    fltw: f32,
-    fltw_d: f32,
-    fltdmp: f32,
-    fltphp: f32,
-    flthp: f32,
-    flthp_d: f32,
     vib_phase: f64,
     vib_speed: f64,
     vib_amp: f64,
@@ -151,6 +144,17 @@ struct Envelope {
     punch: f32
 }
 
+struct HighLowPassFilter {
+    fltp: f32,
+    fltdp: f32,
+    fltw: f32,
+    fltw_d: f32,
+    fltdmp: f32,
+    fltphp: f32,
+    flthp: f32,
+    flthp_d: f32,
+}
+
 struct Phaser {
     ipp: usize,
     buffer: [f32; 1024]
@@ -165,6 +169,7 @@ impl Generator {
             volume: 0.2,
             playing_sample: true,
             oscillator: Oscillator::new(wave_type),
+            hlpf: HighLowPassFilter::new(),
             fperiod: 0.0,
             fmaxperiod: 0.0,
             fslide: 0.0,
@@ -174,14 +179,6 @@ impl Generator {
             fphase: 0.0,
             fdphase: 0.0,
             phaser: Phaser::new(),
-            fltp: 0.0,
-            fltdp: 0.0,
-            fltw: 0.0,
-            fltw_d: 0.0,
-            fltdmp: 0.0,
-            fltphp: 0.0,
-            flthp: 0.0,
-            flthp_d: 0.0,
             vib_phase: 0.0,
             vib_speed: 0.0,
             vib_amp: 0.0,
@@ -229,36 +226,13 @@ impl Generator {
 
             self.fphase += self.fdphase;
 
-            if self.flthp_d != 0.0 {
-                self.flthp = (self.flthp * self.flthp_d).min(0.1).max(0.00001);
-            }
 
             let mut ssample = 0.0;
 
             for _ in 0..8 {
                 let mut sample = self.oscillator.next().unwrap();
 
-                sample = {
-                    // Low pass filter
-                    let pp = self.fltp;
-
-                    self.fltw = (self.fltw * self.fltw_d).min(0.1).max(0.0);
-
-                    if self.sample.lpf_freq < 1.0 {
-                        self.fltdp += (sample - self.fltp) * self.fltw;
-                        self.fltdp -= self.fltdp * self.fltdmp;
-                    } else {
-                        self.fltp = sample;
-                        self.fltdp = 0.0;
-                    }
-
-                    self.fltp += self.fltdp;
-
-                    // High pass filter
-                    self.fltphp += self.fltp - pp;
-                    self.fltphp -= self.fltphp * self.flthp;
-                    self.fltphp
-                };
+                sample = self.hlpf.filter(sample);
 
                 sample = self.phaser.phase(self.fphase, sample);
 
@@ -274,6 +248,8 @@ impl Generator {
             self.oscillator.phase = 0;
         }
 
+        self.hlpf.reset(self.sample.lpf_resonance, self.sample.lpf_freq, self.sample.lpf_ramp,
+                        self.sample.hpf_freq, self.sample.hpf_ramp);
         self.fperiod = 100.0 / ((self.sample.base_freq as f64).powi(2) + 0.001);
         self.fmaxperiod = 100.0 / ((self.sample.freq_limit as f64).powi(2) + 0.001);
         self.fslide = 1.0 - (self.sample.freq_ramp as f64).powi(3) * 0.01;
@@ -296,19 +272,6 @@ impl Generator {
         }
 
         if !restart {
-            self.fltp = 0.0;
-            self.fltdp = 0.0;
-            self.fltw = self.sample.lpf_freq.powi(3) * 0.1;
-            self.fltw_d = 1.0 + self.sample.lpf_ramp * 0.0001;
-
-            self.fltdmp = 5.0 / (1.0 + self.sample.lpf_resonance.powi(2) * 20.0) * (0.01 + self.fltw);
-            if self.fltdmp > 0.8 {
-                self.fltdmp = 0.8;
-            }
-
-            self.fltphp = 0.0;
-            self.flthp = self.sample.hpf_freq.powi(2) * 0.1;
-            self.flthp_d = 1.0 + self.sample.hpf_ramp * 0.0003;
 
             self.vib_phase = 0.0;
             self.vib_speed = self.sample.vib_speed.powi(2) * 0.01;
@@ -441,6 +404,56 @@ impl Envelope {
     }
 }
 
+impl HighLowPassFilter {
+    fn new() -> HighLowPassFilter {
+        HighLowPassFilter {
+            fltp: 0.0,
+            fltdp: 0.0,
+            fltw: 0.0,
+            fltw_d: 0.0,
+            fltdmp: 0.0,
+            fltphp: 0.0,
+            flthp: 0.0,
+            flthp_d: 0.0
+        }
+    }
+    fn reset(&mut self, lpf_resonance: f32, lpf_freq: f32, lpf_ramp: f32, hpf_freq: f32, hpf_ramp: f32) {
+        self.fltp = 0.0;
+        self.fltdp = 0.0;
+        self.fltw = lpf_freq.powi(3) * 0.1;
+        self.fltw_d = 1.0 + lpf_ramp * 0.0001;
+
+        self.fltdmp = 5.0 / (1.0 + lpf_resonance.powi(2) * 20.0) * (0.01 + self.fltw);
+        if self.fltdmp > 0.8 {
+            self.fltdmp = 0.8;
+        }
+
+        self.fltphp = 0.0;
+        self.flthp = hpf_freq.powi(2) * 0.1;
+        self.flthp_d = 1.0 + hpf_ramp * 0.0003;
+    }
+    fn filter(&mut self, sample: f32) -> f32 {
+        let pp = self.fltp;
+
+        if self.fltw > 0.0 {
+            self.fltw = (self.fltw * self.fltw_d).min(0.1).max(0.0);
+            self.fltdp += (sample - self.fltp) * self.fltw;
+            self.fltdp -= self.fltdp * self.fltdmp;
+        } else {
+            self.fltp = sample;
+            self.fltdp = 0.0;
+        }
+
+        self.fltp += self.fltdp;
+
+        // High pass filter
+        self.flthp = (self.flthp * self.flthp_d).min(0.1).max(0.00001);
+        self.fltphp += self.fltp - pp;
+        self.fltphp -= self.fltphp * self.flthp;
+
+        self.fltphp
+    }
+}
 impl Phaser {
     fn new() -> Phaser {
         Phaser {
