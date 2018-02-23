@@ -197,7 +197,7 @@ impl Generator {
             rep_limit: 0,
         };
 
-        g.reset(false);
+        g.reset();
 
         g
     }
@@ -207,7 +207,7 @@ impl Generator {
 
             if self.rep_limit != 0 && self.rep_time >= self.rep_limit {
                 self.rep_time = 0;
-                self.reset(true);
+                self.restart();
             }
 
             self.oscillator.advance();
@@ -224,28 +224,29 @@ impl Generator {
             *buffer_value = (sample * self.volume).min(1.0).max(-1.0);
         });
     }
-    pub fn reset(&mut self, restart: bool) {
+    pub fn reset(&mut self) {
+        self.restart();
+        self.envelope.reset(self.sample.env_attack, self.sample.env_sustain, self.sample.env_decay, self.sample.env_punch);
+        self.phaser.reset(self.sample.pha_offset, self.sample.pha_ramp);
+
+        self.oscillator.phase = 0;
+        self.oscillator.reset_vibrato(self.sample.vib_speed, self.sample.vib_strength);
+        self.oscillator.reset_noise();
+
+        self.rep_time = 0;
+        self.rep_limit = ((1.0 - self.sample.repeat_speed).powi(2) * 20_000.0 * 32.0) as i32;
+
+        if self.sample.repeat_speed == 0.0 {
+            self.rep_limit = 0;
+        }
+    }
+    pub fn restart(&mut self) {
         self.hlpf.reset(self.sample.lpf_resonance, self.sample.lpf_freq, self.sample.lpf_ramp,
                         self.sample.hpf_freq, self.sample.hpf_ramp);
         self.oscillator.reset(self.sample.wave_type, self.sample.base_freq, self.sample.freq_limit,
                               self.sample.freq_ramp, self.sample.freq_dramp,
                               self.sample.duty, self.sample.duty_ramp,
                               self.sample.arp_speed, self.sample.arp_mod);
-        if !restart {
-            self.envelope.reset(self.sample.env_attack, self.sample.env_sustain, self.sample.env_decay, self.sample.env_punch);
-            self.phaser.reset(self.sample.pha_offset, self.sample.pha_ramp);
-
-            self.oscillator.phase = 0;
-            self.oscillator.reset_vibrato(self.sample.vib_speed, self.sample.vib_strength);
-            self.oscillator.reset_noise();
-
-            self.rep_time = 0;
-            self.rep_limit = ((1.0 - self.sample.repeat_speed).powi(2) * 20_000.0 * 32.0) as i32;
-
-            if self.sample.repeat_speed == 0.0 {
-                self.rep_limit = 0;
-            }
-        }
     }
 }
 
