@@ -214,7 +214,7 @@ impl Generator {
             self.envelope.advance();
             self.phaser.advance();
 
-            let sample = self.oscillator.iter()
+            let sample = self.oscillator.by_ref()
                 .chain_filter(&mut self.envelope)
                 .chain_filter(&mut self.hlpf)
                 .chain_filter(&mut self.phaser)
@@ -324,7 +324,10 @@ impl Oscillator {
         self.period = ((vibrato * self.fperiod) as u32).max(8);
         self.square_duty = (self.square_duty + self.square_slide).min(0.5).max(0.0);
     }
-    fn next(&mut self) -> f32 {
+}
+impl Iterator for Oscillator {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
         self.phase += 1;
         if self.phase >= self.period {
             self.phase = self.phase % self.period;
@@ -341,21 +344,9 @@ impl Oscillator {
             WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
         };
 
-        sample
+        Some(sample)
     }
-    fn iter(&mut self) -> OscillatorIterator {
-        OscillatorIterator { oscillator: self }
-    }
-}
-struct OscillatorIterator<'a> {
-    oscillator: &'a mut Oscillator
-}
-impl<'a> Iterator for OscillatorIterator<'a> {
-    type Item = f32;
 
-    fn next(&mut self) -> Option<f32> {
-        Some(self.oscillator.next())
-    }
 }
 impl Envelope {
     fn new() -> Envelope {
