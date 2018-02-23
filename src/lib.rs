@@ -130,7 +130,30 @@ struct Oscillator {
     arp_limit: i32,
     arp_mod: f64
 }
-
+trait Filter {
+    fn filter(&mut self, sample: f32) -> f32;
+}
+struct FilterIterator<'a> {
+    iter: &'a mut Iterator<Item=f32>,
+    filter: &'a mut Filter
+}
+trait Filterable<'a> {
+    fn chain_filter(&'a mut self, filter: &'a mut Filter) -> FilterIterator<'a>;
+}
+impl<'a, T: Iterator<Item=f32> > Filterable<'a> for T {
+    fn chain_filter(&'a mut self, filter: &'a mut Filter) -> FilterIterator<'a> {
+        FilterIterator { iter: self, filter }
+    }
+}
+impl<'a> Iterator for FilterIterator<'a> {
+    type Item = f32;
+    fn next(&mut self) -> Option<f32> {
+        match self.iter.next() {
+            Some(v) => Some(self.filter.filter(v)),
+            None => None
+        }
+    }
+}
 enum EnvelopeStage { Attack, Sustain, Decay, End }
 struct Envelope {
     stage: EnvelopeStage,
@@ -191,16 +214,11 @@ impl Generator {
             self.envelope.advance();
             self.phaser.advance();
 
-            let env_vol = self.envelope.volume();
-
-            // Need to borrow separately to appease borrow checker
-            let oscillator = &mut self.oscillator;
-            let hlpf = &mut self.hlpf;
-            let phaser = &mut self.phaser;
-            let sample = (0..8)
-                .map(|_| oscillator.next().unwrap() * env_vol)
-                .map(|s| hlpf.filter(s))
-                .map(|s| phaser.phase(s))
+            let sample = self.oscillator.iter()
+                .chain_filter(&mut self.envelope)
+                .chain_filter(&mut self.hlpf)
+                .chain_filter(&mut self.phaser)
+                .take(8)
                 .sum::<f32>() / 8.0;
 
             *buffer_value = (sample * self.volume).min(1.0).max(-1.0);
@@ -306,11 +324,7 @@ impl Oscillator {
         self.period = ((vibrato * self.fperiod) as u32).max(8);
         self.square_duty = (self.square_duty + self.square_slide).min(0.5).max(0.0);
     }
-}
-impl Iterator for Oscillator {
-    type Item = f32;
-
-    fn next(&mut self) -> Option<f32> {
+    fn next(&mut self) -> f32 {
         self.phase += 1;
         if self.phase >= self.period {
             self.phase = self.phase % self.period;
@@ -327,7 +341,20 @@ impl Iterator for Oscillator {
             WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
         };
 
-        Some(sample)
+        sample
+    }
+    fn iter(&mut self) -> OscillatorIterator {
+        OscillatorIterator { oscillator: self }
+    }
+}
+struct OscillatorIterator<'a> {
+    oscillator: &'a mut Oscillator
+}
+impl<'a> Iterator for OscillatorIterator<'a> {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<f32> {
+        Some(self.oscillator.next())
     }
 }
 impl Envelope {
@@ -382,6 +409,11 @@ impl Envelope {
     }
 }
 
+impl Filter for Envelope {
+    fn filter(&mut self, sample: f32) -> f32 {
+        sample * self.volume()
+    }
+}
 impl HighLowPassFilter {
     fn new() -> HighLowPassFilter {
         HighLowPassFilter {
@@ -410,6 +442,8 @@ impl HighLowPassFilter {
         self.flthp = hpf_freq.powi(2) * 0.1;
         self.flthp_d = 1.0 + hpf_ramp * 0.0003;
     }
+}
+impl Filter for HighLowPassFilter {
     fn filter(&mut self, sample: f32) -> f32 {
         let pp = self.fltp;
 
@@ -458,7 +492,9 @@ impl Phaser {
     fn advance(&mut self) {
         self.fphase += self.fdphase;
     }
-    fn phase(&mut self, sample: f32) -> f32 {
+}
+impl Filter for Phaser {
+    fn filter(&mut self, sample: f32) -> f32 {
         let p_len = self.buffer.len();
         self.buffer[self.ipp % p_len] = sample;
         let iphase = (self.fphase.abs() as i32).min(p_len as i32 - 1);
@@ -466,5 +502,4 @@ impl Phaser {
         self.ipp = (self.ipp + 1) % p_len;
         result
     }
-
 }
