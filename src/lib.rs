@@ -6,10 +6,10 @@ use rand::{Rng, XorShiftRng};
 pub enum WaveType { Square, Triangle, Sine, Noise }
 pub struct Sample {
     wave_type: WaveType,
-    pub base_freq: f32,
-    pub freq_limit: f32,
-    pub freq_ramp: f32,
-    pub freq_dramp: f32,
+    pub base_freq: f64,
+    pub freq_limit: f64,
+    pub freq_ramp: f64,
+    pub freq_dramp: f64,
     pub duty: f32,
     pub duty_ramp: f32,
 
@@ -34,7 +34,7 @@ pub struct Sample {
     pub repeat_speed: f32,
 
     pub arp_speed: f32,
-    pub arp_mod: f32
+    pub arp_mod: f64
 }
 
 impl Sample {
@@ -103,33 +103,32 @@ pub struct Generator {
     sample: Sample,
 
     pub volume: f32,
-    playing_sample: bool,
     oscillator: Oscillator,
     hlpf: HighLowPassFilter,
-    fperiod: f64,
-    fmaxperiod: f64,
-    fslide: f64,
-    fdslide: f64,
-    square_slide: f32,
     envelope: Envelope,
     phaser: Phaser,
-    vib_phase: f64,
-    vib_speed: f64,
-    vib_amp: f64,
     rep_time: i32,
     rep_limit: i32,
-    arp_time: i32,
-    arp_limit: i32,
-    arp_mod: f64,
 }
 
 struct Oscillator {
     wave_type: WaveType,
-    square_duty: f32,
+    rng:XorShiftRng,
     period: u32,
     phase: u32,
     noise_buffer: [f32; 32],
-    rng:XorShiftRng
+    square_duty: f32,
+    square_slide: f32,
+    fperiod: f64,
+    fmaxperiod: f64,
+    fslide: f64,
+    fdslide: f64,
+    vib_phase: f64,
+    vib_speed: f64,
+    vib_amp: f64,
+    arp_time: i32,
+    arp_limit: i32,
+    arp_mod: f64
 }
 
 enum EnvelopeStage { Attack, Sustain, Decay, End }
@@ -167,24 +166,12 @@ impl Generator {
         let mut g = Generator {
             sample: s,
             volume: 0.2,
-            playing_sample: true,
             oscillator: Oscillator::new(wave_type),
             hlpf: HighLowPassFilter::new(),
-            fperiod: 0.0,
-            fmaxperiod: 0.0,
-            fslide: 0.0,
-            fdslide: 0.0,
-            square_slide: 0.0,
             envelope: Envelope::new(),
             phaser: Phaser::new(),
-            vib_phase: 0.0,
-            vib_speed: 0.0,
-            vib_amp: 0.0,
             rep_time: 0,
             rep_limit: 0,
-            arp_time: 0,
-            arp_limit: 0,
-            arp_mod: 0.0,
         };
 
         g.reset(false);
@@ -193,9 +180,6 @@ impl Generator {
     }
     pub fn generate(&mut self, buffer: &mut [f32]) {
         buffer.iter_mut().for_each(|buffer_value| {
-            if !self.playing_sample {
-                return
-            }
             self.rep_time += 1;
 
             if self.rep_limit != 0 && self.rep_time >= self.rep_limit {
@@ -203,26 +187,11 @@ impl Generator {
                 self.reset(true);
             }
 
-            self.arp_time += 1;
-
-            if self.arp_limit != 0 && self.arp_time >= self.arp_limit {
-                self.arp_limit = 0;
-                self.fperiod *= self.arp_mod as f64;
-            }
-
-            self.fslide += self.fdslide;
-            self.fperiod = (self.fperiod * self.fslide).min(self.fmaxperiod);
-
-            self.vib_phase += self.vib_speed;
-            let vibrato = 1.0 + self.vib_phase.sin() * self.vib_amp;
-
-            self.oscillator.period = ((vibrato * self.fperiod) as u32).max(8);
-            self.oscillator.square_slide(self.square_slide);
-
+            self.oscillator.advance();
             self.envelope.advance();
-            let env_vol = self.envelope.volume();
-
             self.phaser.advance();
+
+            let env_vol = self.envelope.volume();
 
             // Need to borrow separately to appease borrow checker
             let oscillator = &mut self.oscillator;
@@ -238,44 +207,18 @@ impl Generator {
         });
     }
     pub fn reset(&mut self, restart: bool) {
-        if !restart {
-            self.oscillator.phase = 0;
-        }
-
         self.hlpf.reset(self.sample.lpf_resonance, self.sample.lpf_freq, self.sample.lpf_ramp,
                         self.sample.hpf_freq, self.sample.hpf_ramp);
-        self.fperiod = 100.0 / ((self.sample.base_freq as f64).powi(2) + 0.001);
-        self.fmaxperiod = 100.0 / ((self.sample.freq_limit as f64).powi(2) + 0.001);
-        self.fslide = 1.0 - (self.sample.freq_ramp as f64).powi(3) * 0.01;
-        self.fdslide = -(self.sample.freq_dramp as f64).powi(3) * 0.000001;
-        self.oscillator.wave_type = self.sample.wave_type;
-        self.oscillator.square_duty = 0.5 - self.sample.duty * 0.5;
-        self.square_slide = -self.sample.duty_ramp * 0.00005;
-
-        self.arp_mod = if self.sample.arp_mod >= 0.0 {
-            1.0 - (self.sample.arp_mod as f64).powf(2.0) * 0.9
-        } else {
-            1.0 - (self.sample.arp_mod as f64).powf(2.0) * 10.0
-        };
-
-        self.arp_time = 0;
-        self.arp_limit = ((1.0 - self.sample.arp_speed).powi(2) * 20000.0 + 32.0) as i32;
-
-        if self.sample.arp_speed == 1.0 {
-            self.arp_limit = 0;
-        }
-
+        self.oscillator.reset(self.sample.wave_type, self.sample.base_freq, self.sample.freq_limit,
+                              self.sample.freq_ramp, self.sample.freq_dramp,
+                              self.sample.duty, self.sample.duty_ramp,
+                              self.sample.arp_speed, self.sample.arp_mod);
         if !restart {
-
-            self.vib_phase = 0.0;
-            self.vib_speed = self.sample.vib_speed.powi(2) * 0.01;
-            self.vib_amp = self.sample.vib_strength * 0.5;
-
-            let attack = (self.sample.env_attack.powi(2) * 100_000.0) as u32;
-            let sustain = (self.sample.env_sustain.powi(2) * 100_000.0) as u32;
-            let decay = (self.sample.env_decay.powi(2) * 100_000.0) as u32;
-            self.envelope.reset(attack, sustain, decay, self.sample.env_punch);
+            self.envelope.reset(self.sample.env_attack, self.sample.env_sustain, self.sample.env_decay, self.sample.env_punch);
             self.phaser.reset(self.sample.pha_offset, self.sample.pha_ramp);
+
+            self.oscillator.phase = 0;
+            self.oscillator.reset_vibrato(self.sample.vib_speed, self.sample.vib_strength);
             self.oscillator.reset_noise();
 
             self.rep_time = 0;
@@ -297,7 +240,18 @@ impl Oscillator {
             square_duty: 0.5,
             period: 8,
             phase: 0,
+            fperiod: 0.0,
+            fmaxperiod: 0.0,
+            fslide: 0.0,
+            fdslide: 0.0,
+            square_slide: 0.0,
             noise_buffer: [0.0; 32],
+            vib_phase: 0.0,
+            vib_speed: 0.0,
+            vib_amp: 0.0,
+            arp_time: 0,
+            arp_limit: 0,
+            arp_mod: 0.0,
             rng: rand::weak_rng()
         }
     }
@@ -306,8 +260,51 @@ impl Oscillator {
             *v = self.rng.next_f32() * 2.0 - 1.0;
         }
     }
-    fn square_slide(&mut self, amount: f32) {
-        self.square_duty = (self.square_duty + amount).min(0.5).max(0.0);
+    fn reset_vibrato(&mut self, vib_speed: f64, vib_strength: f64) {
+        self.vib_phase = 0.0;
+        self.vib_speed = vib_speed.powi(2) * 0.01;
+        self.vib_amp = vib_strength * 0.5;
+    }
+    fn reset(&mut self, wave_type: WaveType,
+             base_freq: f64, freq_limit: f64, freq_ramp: f64, freq_dramp: f64,
+             duty: f32, duty_ramp: f32, arp_speed: f32, arp_mod: f64) {
+        self.wave_type = wave_type;
+        self.fperiod = 100.0 / (base_freq.powi(2) + 0.001);
+        self.fmaxperiod = 100.0 / (freq_limit.powi(2) + 0.001);
+        self.fslide = 1.0 - freq_ramp.powi(3) * 0.01;
+        self.fdslide = -freq_dramp.powi(3) * 0.000001;
+        self.square_duty = 0.5 - duty * 0.5;
+        self.square_slide = -duty_ramp * 0.00005;
+
+        self.arp_mod = if arp_mod >= 0.0 {
+            1.0 - arp_mod.powf(2.0) * 0.9
+        } else {
+            1.0 - arp_mod.powf(2.0) * 10.0
+        };
+
+        self.arp_time = 0;
+        self.arp_limit = ((1.0 - arp_speed).powi(2) * 20000.0 + 32.0) as i32;
+
+        if arp_speed == 1.0 {
+            self.arp_limit = 0;
+        }
+    }
+    fn advance(&mut self) {
+        self.arp_time += 1;
+
+        if self.arp_limit != 0 && self.arp_time >= self.arp_limit {
+            self.arp_limit = 0;
+            self.fperiod *= self.arp_mod as f64;
+        }
+
+        self.fslide += self.fdslide;
+        self.fperiod = (self.fperiod * self.fslide).min(self.fmaxperiod);
+
+        self.vib_phase += self.vib_speed;
+        let vibrato = 1.0 + self.vib_phase.sin() * self.vib_amp;
+
+        self.period = ((vibrato * self.fperiod) as u32).max(8);
+        self.square_duty = (self.square_duty + self.square_slide).min(0.5).max(0.0);
     }
 }
 impl Iterator for Oscillator {
@@ -344,10 +341,10 @@ impl Envelope {
             punch: 0.0
         }
     }
-    fn reset(&mut self, attack: u32, sustain: u32, decay: u32, punch: f32) {
-        self.attack = attack;
-        self.sustain = sustain;
-        self.decay = decay;
+    fn reset(&mut self, attack: f32, sustain: f32, decay: f32, punch: f32) {
+        self.attack = (attack.powi(2) * 100_000.0) as u32;
+        self.sustain = (sustain.powi(2) * 100_000.0) as u32;
+        self.decay = (decay.powi(2) * 100_000.0) as u32;
         self.punch = punch;
         self.stage = EnvelopeStage::Attack;
         self.stage_left = self.current_stage_length();
