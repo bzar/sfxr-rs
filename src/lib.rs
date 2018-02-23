@@ -112,8 +112,6 @@ pub struct Generator {
     fdslide: f64,
     square_slide: f32,
     envelope: Envelope,
-    fphase: f32,
-    fdphase: f32,
     phaser: Phaser,
     vib_phase: f64,
     vib_speed: f64,
@@ -157,6 +155,8 @@ struct HighLowPassFilter {
 
 struct Phaser {
     ipp: usize,
+    fphase: f32,
+    fdphase: f32,
     buffer: [f32; 1024]
 }
 
@@ -176,8 +176,6 @@ impl Generator {
             fdslide: 0.0,
             square_slide: 0.0,
             envelope: Envelope::new(),
-            fphase: 0.0,
-            fdphase: 0.0,
             phaser: Phaser::new(),
             vib_phase: 0.0,
             vib_speed: 0.0,
@@ -224,23 +222,19 @@ impl Generator {
             self.envelope.advance();
             let env_vol = self.envelope.volume();
 
-            self.fphase += self.fdphase;
+            self.phaser.advance();
 
+            // Need to borrow separately to appease borrow checker
+            let oscillator = &mut self.oscillator;
+            let hlpf = &mut self.hlpf;
+            let phaser = &mut self.phaser;
+            let sample = (0..8)
+                .map(|_| oscillator.next().unwrap() * env_vol)
+                .map(|s| hlpf.filter(s))
+                .map(|s| phaser.phase(s))
+                .sum::<f32>() / 8.0;
 
-            let mut ssample = 0.0;
-
-            for _ in 0..8 {
-                let mut sample = self.oscillator.next().unwrap();
-
-                sample = self.hlpf.filter(sample);
-
-                sample = self.phaser.phase(self.fphase, sample);
-
-                ssample += sample * env_vol;
-            }
-
-            // Average supersamples, apply volume, limit to [-1.0..1.0]
-            *buffer_value = (ssample * self.volume / 8.0).min(1.0).max(-1.0);
+            *buffer_value = (sample * self.volume).min(1.0).max(-1.0);
         });
     }
     pub fn reset(&mut self, restart: bool) {
@@ -281,20 +275,7 @@ impl Generator {
             let sustain = (self.sample.env_sustain.powi(2) * 100_000.0) as u32;
             let decay = (self.sample.env_decay.powi(2) * 100_000.0) as u32;
             self.envelope.reset(attack, sustain, decay, self.sample.env_punch);
-
-            self.fphase == self.sample.pha_offset.powi(2) * 1020.0;
-
-            if self.sample.pha_offset < 0.0 {
-                self.fphase = -self.fphase
-            }
-
-            self.fdphase = self.sample.pha_ramp.powi(2) * 1.0;
-
-            if self.sample.pha_ramp < 0.0 {
-                self.fdphase = -self.fdphase;
-            }
-
-            self.phaser = Phaser::new();
+            self.phaser.reset(self.sample.pha_offset, self.sample.pha_ramp);
             self.oscillator.reset_noise();
 
             self.rep_time = 0;
@@ -458,13 +439,32 @@ impl Phaser {
     fn new() -> Phaser {
         Phaser {
             ipp: 0,
+            fphase: 0.0,
+            fdphase: 0.0,
             buffer: [0.0; 1024]
         }
     }
-    fn phase(&mut self, fphase: f32, sample: f32) -> f32 {
+    fn reset(&mut self, pha_offset: f32, pha_ramp: f32) {
+        self.fphase = pha_offset.powi(2) * 1020.0;
+
+        if pha_offset < 0.0 {
+            self.fphase = -self.fphase
+        }
+
+        self.fdphase = pha_ramp.powi(2) * 1.0;
+
+        if pha_ramp < 0.0 {
+            self.fdphase = -self.fdphase;
+        }
+    }
+
+    fn advance(&mut self) {
+        self.fphase += self.fdphase;
+    }
+    fn phase(&mut self, sample: f32) -> f32 {
         let p_len = self.buffer.len();
         self.buffer[self.ipp % p_len] = sample;
-        let iphase = (fphase.abs() as i32).min(p_len as i32 - 1);
+        let iphase = (self.fphase.abs() as i32).min(p_len as i32 - 1);
         let result = sample + self.buffer[(self.ipp + p_len - iphase as usize) % p_len];
         self.ipp = (self.ipp + 1) % p_len;
         result
