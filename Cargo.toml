@@ -6,6 +6,7 @@ authors = ["Teemu Erkkola <teemu.erkkola@iki.fi>"]
 description = "Reimplementation of DrPetter's 'sfxr' sound effect generator"
 repository = "https://github.com/bzar/sfxr-rs"
 
+license = "MIT"
 keywords = ["sfx","sound","effect"]
 categories = ["multimedia::audio"]
 
