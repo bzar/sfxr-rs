@@ -102,6 +102,46 @@ impl Sample {
         assert!(self.arp_mod >= -1.0 && self.arp_mod <= 1.0, "arp_mod must be between -1.0 and 1.0");
     }
 
+    pub fn mutate(&mut self) {
+        let rng = &mut rand::weak_rng();
+
+        fn mutate_f64(rng: &mut Rng, v: &mut f64, min: f64, max: f64) {
+            if rand_bool(rng, 1, 1) {
+                *v = (*v + rand_f64(rng, -0.05, 0.05)).min(max).max(min);
+            }
+        }
+        fn mutate_f32(rng: &mut Rng, v: &mut f32, min: f32, max: f32) {
+            if rand_bool(rng, 1, 1) {
+                *v = (*v + rand_f32(rng, -0.05, 0.05)).min(max).max(min);
+            }
+        }
+
+        mutate_f64(rng, &mut self.base_freq, 0.0, 1.0);
+        // Commented out in sfxr?
+        // mutate_f64(rng, &mut self.freq_limit);
+        mutate_f64(rng, &mut self.freq_ramp, -1.0, 1.0);
+        mutate_f64(rng, &mut self.freq_dramp, 0.0, 1.0);
+        mutate_f32(rng, &mut self.duty, 0.0, 1.0);
+        mutate_f32(rng, &mut self.duty_ramp, -1.0, 1.0);
+        mutate_f64(rng, &mut self.vib_strength, 0.0, 1.0);
+        mutate_f64(rng, &mut self.vib_speed, 0.0, 1.0);
+        mutate_f32(rng, &mut self.vib_delay, 0.0, 1.0);
+        mutate_f32(rng, &mut self.env_attack, 0.0, 1.0);
+        mutate_f32(rng, &mut self.env_sustain, 0.0, 1.0);
+        mutate_f32(rng, &mut self.env_decay, 0.0, 1.0);
+        mutate_f32(rng, &mut self.env_punch, -1.0, 1.0);
+        mutate_f32(rng, &mut self.lpf_resonance, 0.0, 1.0);
+        mutate_f32(rng, &mut self.lpf_freq, 0.0, 1.0);
+        mutate_f32(rng, &mut self.lpf_ramp, -1.0, 1.0);
+        mutate_f32(rng, &mut self.hpf_freq, 0.0, 1.0);
+        mutate_f32(rng, &mut self.hpf_ramp, -1.0, 1.0);
+        mutate_f32(rng, &mut self.pha_offset, -1.0, 1.0);
+        mutate_f32(rng, &mut self.pha_ramp, 0.0, 1.0);
+        mutate_f32(rng, &mut self.repeat_speed, 0.0, 1.0);
+        mutate_f32(rng, &mut self.arp_speed, 0.0, 1.0);
+        mutate_f64(rng, &mut self.arp_mod, -1.0, 1.0);
+    }
+
     pub fn pickup() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();

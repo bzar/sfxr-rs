@@ -25,7 +25,8 @@ fn main() {
         samples: None
     };
 
-    let sample = sfxr::Sample::new();
+    let mut sample = sfxr::Sample::new();
+    sample.mutate();
     let generator = sfxr::Generator::new(sample);
 
     let device = audio_subsystem.open_playback(None, &desired_spec, |_spec| {
