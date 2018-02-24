@@ -1,3 +1,7 @@
+extern crate rand;
+
+use rand::{Rng};
+
 mod generator;
 
 pub use generator::WaveType;
@@ -97,6 +101,216 @@ impl Sample {
         assert!(self.arp_speed >= 0.0 && self.arp_speed <= 1.0, "arp_speed must be between 0.0 and 1.0");
         assert!(self.arp_mod >= -1.0 && self.arp_mod <= 1.0, "arp_mod must be between -1.0 and 1.0");
     }
+
+    pub fn pickup() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        s.base_freq = rand_f64(rng, 0.4, 0.9);
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.0, 0.1);
+        s.env_decay = rand_f32(rng, 0.1, 0.5);
+        s.env_punch = rand_f32(rng, 0.3, 0.6);
+
+        if rand_bool(rng, 1, 1) {
+            s.arp_speed = rand_f32(rng, 0.5, 0.7);
+            s.arp_mod = rand_f64(rng, 0.2, 0.6);
+        }
+
+        s
+    }
+
+    pub fn laser() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        let wave_types = {
+            use WaveType::*;
+            [Square, Square, Sine, Sine, Triangle]
+        };
+        s.wave_type = rand_element(rng, &wave_types);
+
+        if rand_bool(rng, 1, 2) {
+            s.base_freq = rand_f64(rng, 0.3, 0.9);
+            s.freq_limit = rand_f64(rng, 0.0, 0.1);
+            s.freq_ramp = rand_f64(rng, -0.35, -0.65);
+        } else {
+            s.base_freq = rand_f64(rng, 0.5, 1.0);
+            s.freq_limit = (s.base_freq - rand_f64(rng, 0.2, 0.8)).max(0.2);
+            s.freq_ramp = rand_f64(rng, -0.15, -0.35);
+        }
+
+        if rand_bool(rng, 1, 1) {
+            s.duty = rand_f32(rng, 0.0, 0.5);
+            s.duty_ramp = rand_f32(rng, 0.0, 0.2);
+        } else {
+            s.duty = rand_f32(rng, 0.4, 0.9);
+            s.duty_ramp = rand_f32(rng, 0.0, -0.7);
+        }
+
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.1, 0.3);
+        s.env_decay = rand_f32(rng, 0.0, 0.4);
+
+        if rand_bool(rng, 1, 1) {
+            s.env_punch = rand_f32(rng, 0.0, 0.3);
+        }
+
+        if rand_bool(rng, 1, 2) {
+            s.pha_offset = rand_f32(rng, 0.0, 0.2);
+            s.pha_ramp = -rand_f32(rng, 0.0, 0.2);
+        }
+
+        if rand_bool(rng, 1, 1) {
+            s.hpf_freq = rand_f32(rng, 0.0, 0.3);
+        }
+
+        s
+    }
+
+    pub fn explosion() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        s.wave_type = WaveType::Noise;
+
+        if rand_bool(rng, 1, 1) {
+            s.base_freq = rand_f64(rng, 0.1, 0.5);
+            s.freq_ramp = rand_f64(rng, -0.1, 0.3);
+        } else {
+            s.base_freq = rand_f64(rng, 0.2, 0.9);
+            s.freq_ramp = rand_f64(rng, -0.2, -0.4);
+        }
+
+        s.base_freq = s.base_freq.powi(2);
+
+        if rand_bool(rng, 1, 4) {
+            s.freq_ramp = 0.0;
+        }
+
+        if rand_bool(rng, 1, 2) {
+            s.repeat_speed = rand_f32(rng, 0.3, 0.8);
+        }
+
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.1, 0.4);
+        s.env_decay = rand_f32(rng, 0.0, 0.5);
+
+        if rand_bool(rng, 1, 1) {
+            s.pha_offset = rand_f32(rng, -0.3, 0.6);
+            s.pha_ramp = rand_f32(rng, -0.3, 0.0);
+        }
+
+        s.env_punch = rand_f32(rng, 0.2, 0.8);
+
+        if rand_bool(rng, 1, 1) {
+            s.vib_strength = rand_f64(rng, 0.0, 0.7);
+            s.vib_speed = rand_f64(rng, 0.0, 0.6);
+        }
+
+        if rand_bool(rng, 1, 2) {
+            s.arp_speed = rand_f32(rng, 0.6, 0.9);
+            s.arp_mod = rand_f64(rng, -0.8, 0.8);
+        }
+
+        s
+    }
+
+    pub fn powerup() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        if rand_bool(rng, 1, 1) {
+            s.wave_type = WaveType::Sine;
+        } else {
+            s.duty = rand_f32(rng, 0.0, 0.6);
+        }
+
+        s.base_freq = rand_f64(rng, 0.2, 0.5);
+
+        if rand_bool(rng, 1, 1) {
+            s.freq_ramp = rand_f64(rng, 0.1, 0.5);
+            s.repeat_speed = rand_f32(rng, 0.4, 0.8);
+        } else {
+            s.freq_ramp = rand_f64(rng, 0.05, 0.25);
+
+            if rand_bool(rng, 1, 1) {
+                s.vib_strength = rand_f64(rng, 0.0, 0.7);
+                s.vib_speed = rand_f64(rng, 0.0, 0.6);
+            }
+        }
+
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.0, 0.4);
+        s.env_decay = rand_f32(rng, 0.1, 0.5);
+
+        s
+    }
+
+    pub fn hit() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine, WaveType::Noise]);
+
+        if s.wave_type == WaveType::Square {
+            s.duty = rand_f32(rng, 0.0, 0.6);
+        }
+
+        s.base_freq = rand_f64(rng, 0.2, 0.8);
+        s.freq_ramp = rand_f64(rng, -0.3, -0.7);
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.0, 0.1);
+        s.env_decay = rand_f32(rng, 0.1, 0.3);
+
+        if rand_bool(rng, 1, 1) {
+            s.hpf_freq = rand_f32(rng, 0.0, 0.3);
+        }
+
+        s
+    }
+
+    pub fn jump() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        s.wave_type = WaveType::Square;
+        s.duty = rand_f32(rng, 0.0, 0.6);
+        s.base_freq = rand_f64(rng, 0.3, 0.6);
+        s.freq_ramp = rand_f64(rng, 0.1, 0.3);
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.1, 0.4);
+        s.env_decay = rand_f32(rng, 0.1, 0.3);
+
+        if rand_bool(rng, 1, 1) {
+            s.hpf_freq = rand_f32(rng, 0.0, 0.3);
+        }
+
+        if rand_bool(rng, 1, 1) {
+            s.lpf_freq = rand_f32(rng, 0.4, 1.0);
+        }
+
+        s
+    }
+
+    pub fn blip() -> Sample {
+        let rng = &mut rand::weak_rng();
+        let mut s = Sample::new();
+
+        s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine]);
+
+        if s.wave_type == WaveType::Square {
+            s.duty = rand_f32(rng, 0.0, 0.6);
+        }
+
+        s.base_freq = rand_f64(rng, 0.2, 0.6);
+        s.env_attack = 0.0;
+        s.env_sustain = rand_f32(rng, 0.1, 0.2);
+        s.env_decay = rand_f32(rng, 0.0, 0.2);
+        s.hpf_freq = 0.1;
+
+        s
+    }
 }
 
 pub struct Generator {
@@ -176,4 +390,17 @@ impl Generator {
                               self.sample.duty, self.sample.duty_ramp,
                               self.sample.arp_speed, self.sample.arp_mod);
     }
+}
+
+fn rand_f32(rng: &mut Rng, from: f32, until: f32) -> f32 {
+    from + (until - from) * rng.next_f32()
+}
+fn rand_f64(rng: &mut Rng, from: f64, until: f64) -> f64 {
+    from + (until - from) * rng.next_f64()
+}
+fn rand_bool(rng: &mut Rng, chance_true: u32, chance_false: u32) -> bool {
+    rng.next_u32() % (chance_true + chance_false) < chance_true
+}
+fn rand_element<T: Copy>(rng: &mut Rng, slice: &[T]) -> T {
+    slice[rng.next_u32() as usize % slice.len()]
 }
