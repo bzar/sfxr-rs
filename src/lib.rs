@@ -1,3 +1,35 @@
+//! Reimplementation of DrPetter's "sfxr" sound effect generator.
+//!
+//! This crate provides tools for creating quick placeholder sound effects. The effects are
+//! primarily intended to be used in quickly made games.
+//!
+//! Sound effects are first defined as `Sample` values, which has many fields for tuning the
+//! properties of the resulting sound. A simple base Sample can be created with `Sample::new`,
+//! but other constructors for various purposes are provided for quick random Samples.
+//!
+//! Next, a `Generator` is constructed to handle filling a sound buffer with data.
+//!
+//! # Examples
+//!
+//! Generating a smooth sine wave into a buffer
+//!
+//! ```
+//! let mut sample = Sample::new();
+//! sample.wave_type = WaveType::Sine;
+//! let generator = Generator::new(sample);
+//! let buffer = [0.0; 44_100];
+//! generator.generate(&mut buffer);
+//! ```
+//!
+//! Generating a random explosion effect
+//!
+//! ```
+//! let sample = Sample::explosion();
+//! let generator = Generator::new(sample);
+//! let buffer = [0.0; 44_100];
+//! generator.generate(&mut buffer);
+//! ```
+
 extern crate rand;
 
 use rand::{Rng};
@@ -8,40 +40,66 @@ pub use generator::WaveType;
 
 use generator::{Envelope, HighLowPassFilter, Phaser, Oscillator, Filterable};
 
+/// Defines a sound effect configuration for a Generator
 pub struct Sample {
-    wave_type: WaveType,
+    /// Oscillator wave type
+    pub wave_type: WaveType,
+    /// Oscillator base frequency. Value must be between `0.0` and `1.0`.
     pub base_freq: f64,
+    /// Oscillator frequency limit. Value must be between `0.0` and `1.0`.
     pub freq_limit: f64,
+    /// Oscillator frequency change over time. Value must be between `-1.0` and `1.0`.
     pub freq_ramp: f64,
+    /// `freq_ramp` change over time. Value must be between `-1.0` and `1.0`.
     pub freq_dramp: f64,
+    /// Oscillator square wave duty cycle. Value must be between `0.0` and `1.0`.
     pub duty: f32,
+    /// Oscillator square wave duty cycle change over time. Value must be between `-1.0` and `1.0`.
     pub duty_ramp: f32,
 
+    /// Vibrato strength. Value must be between `0.0` and `1.0`.
     pub vib_strength: f64,
+    /// Vibrato speed. Value must be between `0.0` and `1.0`.
     pub vib_speed: f64,
+    /// Vibrato delay. Value must be between `0.0` and `1.0`.
     pub vib_delay: f32,
 
+    /// Duration of attack envelope. Value must be between `0.0` and `1.0`.
     pub env_attack: f32,
+    /// Duration of sustain envelope. Value must be between `0.0` and `1.0`.
     pub env_sustain: f32,
+    /// Duration of decay envelope. Value must be between `0.0` and `1.0`.
     pub env_decay: f32,
+    /// Amount of "punch" in sustain envelope. Value must be between `-1.0` and `1.0`.
     pub env_punch: f32,
 
+    /// Low pass filter resonance. Value must be between `0.0` and `1.0`.
     pub lpf_resonance: f32,
+    /// Low pass filter cutoff frequency. Value must be between `0.0` and `1.0`.
     pub lpf_freq: f32,
+    /// Low pass filter cutoff frequency change over time. Value must be between `-1.0` and `1.0`.
     pub lpf_ramp: f32,
+    /// High pass filter cutoff frequency. Value must be between `0.0` and `1.0`.
     pub hpf_freq: f32,
+    /// High pass filter cutoff frequency change over time. Value must be between `-1.0` and `1.0`.
     pub hpf_ramp: f32,
 
+    /// Phaser temporal offset. Value must be between `-1.0` and `1.0`.
     pub pha_offset: f32,
+    /// Phaser temporal offset change over time. Value must be between `-1.0` and `1.0`.
     pub pha_ramp: f32,
 
+    /// Sample repeat speed. Value must be between `0.0` and `1.0`.
     pub repeat_speed: f32,
 
+    /// Arpeggio interval. Value must be between `0.0` and `1.0`.
     pub arp_speed: f32,
+    /// Arpeggio step in frequency. Value must be between `-1.0` and `1.0`.
     pub arp_mod: f64
 }
 
 impl Sample {
+    /// Constructs a new Sample with default settings
     pub fn new() -> Sample {
         Sample {
             wave_type: WaveType::Square,
@@ -76,6 +134,8 @@ impl Sample {
             arp_mod: 0.0
         }
     }
+
+    /// Asserts all fields' values to be within correct values
     fn assert_valid(&self) {
         assert!(self.base_freq >= 0.0 && self.base_freq <= 1.0, "base_freq must be between 0.0 and 1.0");
         assert!(self.freq_limit >= 0.0 && self.freq_limit <= 1.0, "freq_limit must be between 0.0 and 1.0");
@@ -102,6 +162,7 @@ impl Sample {
         assert!(self.arp_mod >= -1.0 && self.arp_mod <= 1.0, "arp_mod must be between -1.0 and 1.0");
     }
 
+    /// Changes Sample fields randomly by a little
     pub fn mutate(&mut self) {
         let rng = &mut rand::weak_rng();
 
@@ -142,6 +203,7 @@ impl Sample {
         mutate_f64(rng, &mut self.arp_mod, -1.0, 1.0);
     }
 
+    /// Constructs a new random "coin" or "item pickup" style sample
     pub fn pickup() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -160,6 +222,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "shoot" or "laser" style sample
     pub fn laser() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -208,6 +271,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "explosion" style sample
     pub fn explosion() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -256,6 +320,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "powerup" style sample
     pub fn powerup() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -287,6 +352,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "hit" or "damage" style sample
     pub fn hit() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -310,6 +376,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "jump" style sample
     pub fn jump() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -333,6 +400,7 @@ impl Sample {
         s
     }
 
+    /// Constructs a new random "blip" or "menu navigation" style sample
     pub fn blip() -> Sample {
         let rng = &mut rand::weak_rng();
         let mut s = Sample::new();
@@ -353,9 +421,14 @@ impl Sample {
     }
 }
 
+/// Sound effect generator
+///
+/// Generates sound effect data according to a Sample into a buffer. The data can be generated in
+/// multiple chunks, as the generator maintains its state from one call to `generate` to the next.
 pub struct Generator {
     sample: Sample,
 
+    /// Sound effect volume. Default is `0.2`.
     pub volume: f32,
     oscillator: Oscillator,
     hlpf: HighLowPassFilter,
@@ -365,6 +438,7 @@ pub struct Generator {
     rep_limit: i32,
 }
 impl Generator {
+    /// Constructs a new Generator based on the provided Sample
     pub fn new(s: Sample) -> Generator {
         s.assert_valid();
         let wave_type = s.wave_type;
@@ -383,6 +457,8 @@ impl Generator {
 
         g
     }
+    /// Fills `buffer` with sound effect data. Subsequent calls continue where the last left off.
+    /// Call `reset` first to start generating from the beginning.
     pub fn generate(&mut self, buffer: &mut [f32]) {
         buffer.iter_mut().for_each(|buffer_value| {
             self.rep_time += 1;
@@ -406,6 +482,7 @@ impl Generator {
             *buffer_value = (sample * self.volume).min(1.0).max(-1.0);
         });
     }
+    /// Resets the generator to the beginning of the sound effect.
     pub fn reset(&mut self) {
         self.restart();
         self.envelope.reset(self.sample.env_attack, self.sample.env_sustain, self.sample.env_decay, self.sample.env_punch);
@@ -422,7 +499,8 @@ impl Generator {
             self.rep_limit = 0;
         }
     }
-    pub fn restart(&mut self) {
+    /// Resets only the oscillator and band pass filter.
+    fn restart(&mut self) {
         self.hlpf.reset(self.sample.lpf_resonance, self.sample.lpf_freq, self.sample.lpf_ramp,
                         self.sample.hpf_freq, self.sample.hpf_ramp);
         self.oscillator.reset(self.sample.wave_type, self.sample.base_freq, self.sample.freq_limit,
@@ -432,15 +510,19 @@ impl Generator {
     }
 }
 
+/// Generate a random `f32` using `rng` in the range [`from`...`until`).
 fn rand_f32(rng: &mut Rng, from: f32, until: f32) -> f32 {
     from + (until - from) * rng.next_f32()
 }
+/// Generate a random `f64` using `rng` in the range [`from`...`until`).
 fn rand_f64(rng: &mut Rng, from: f64, until: f64) -> f64 {
     from + (until - from) * rng.next_f64()
 }
+/// Generate a random `bool` using `rng` with `chance_true`:`chance_false` odds of being true.
 fn rand_bool(rng: &mut Rng, chance_true: u32, chance_false: u32) -> bool {
     rng.next_u32() % (chance_true + chance_false) < chance_true
 }
+/// Pick a random element from `slice` using `rng`.
 fn rand_element<T: Copy>(rng: &mut Rng, slice: &[T]) -> T {
     slice[rng.next_u32() as usize % slice.len()]
 }
