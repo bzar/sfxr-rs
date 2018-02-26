@@ -30,9 +30,11 @@
 //! generator.generate(&mut buffer);
 //! ```
 
-extern crate rand;
+extern crate prng;
+extern crate rng_trait;
 
-use rand::{Rng};
+use rng_trait::Rng;
+use prng::Prng;
 
 mod generator;
 
@@ -164,7 +166,7 @@ impl Sample {
 
     /// Changes Sample fields randomly by a little
     pub fn mutate(&mut self) {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
 
         fn mutate_f64(rng: &mut Rng, v: &mut f64, min: f64, max: f64) {
             if rand_bool(rng, 1, 1) {
@@ -205,7 +207,7 @@ impl Sample {
 
     /// Constructs a new random "coin" or "item pickup" style sample
     pub fn pickup() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         s.base_freq = rand_f64(rng, 0.4, 0.9);
@@ -224,7 +226,7 @@ impl Sample {
 
     /// Constructs a new random "shoot" or "laser" style sample
     pub fn laser() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         let wave_types = {
@@ -273,7 +275,7 @@ impl Sample {
 
     /// Constructs a new random "explosion" style sample
     pub fn explosion() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Noise;
@@ -322,7 +324,7 @@ impl Sample {
 
     /// Constructs a new random "powerup" style sample
     pub fn powerup() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         if rand_bool(rng, 1, 1) {
@@ -354,7 +356,7 @@ impl Sample {
 
     /// Constructs a new random "hit" or "damage" style sample
     pub fn hit() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine, WaveType::Noise]);
@@ -378,7 +380,7 @@ impl Sample {
 
     /// Constructs a new random "jump" style sample
     pub fn jump() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Square;
@@ -402,7 +404,7 @@ impl Sample {
 
     /// Constructs a new random "blip" or "menu navigation" style sample
     pub fn blip() -> Sample {
-        let rng = &mut rand::weak_rng();
+        let rng = &mut Prng::new();
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine]);
@@ -426,7 +428,8 @@ impl Sample {
 /// Generates sound effect data according to a Sample into a buffer. The data can be generated in
 /// multiple chunks, as the generator maintains its state from one call to `generate` to the next.
 pub struct Generator {
-    sample: Sample,
+    /// Generator settings
+    pub sample: Sample,
 
     /// Sound effect volume. Default is `0.2`.
     pub volume: f32,

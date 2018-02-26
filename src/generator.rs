@@ -1,12 +1,15 @@
-extern crate rand;
-use self::rand::{Rng, XorShiftRng};
+extern crate prng;
+extern crate rng_trait;
+
+use self::rng_trait::Rng;
+use self::prng::Prng;
 
 #[derive(PartialEq,Copy,Clone)]
 pub enum WaveType { Square, Triangle, Sine, Noise }
 
 pub struct Oscillator {
     wave_type: WaveType,
-    rng:XorShiftRng,
+    rng: Prng,
     period: u32,
     phase: u32,
     noise_buffer: [f32; 32],
@@ -98,7 +101,7 @@ impl Oscillator {
             arp_time: 0,
             arp_limit: 0,
             arp_mod: 0.0,
-            rng: rand::weak_rng()
+            rng: Prng::new()
         }
     }
     pub fn reset_noise(&mut self) {
