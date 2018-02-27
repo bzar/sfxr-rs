@@ -205,9 +205,12 @@ impl Sample {
         mutate_f64(rng, &mut self.arp_mod, -1.0, 1.0);
     }
 
-    /// Constructs a new random "coin" or "item pickup" style sample
-    pub fn pickup() -> Sample {
+    /// Constructs a new random "coin" or "item pickup" style sample using optional random seed
+    pub fn pickup(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         s.base_freq = rand_f64(rng, 0.4, 0.9);
@@ -224,9 +227,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "shoot" or "laser" style sample
-    pub fn laser() -> Sample {
+    /// Constructs a new random "shoot" or "laser" style sample using optional random seed
+    pub fn laser(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         let wave_types = {
@@ -273,9 +279,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "explosion" style sample
-    pub fn explosion() -> Sample {
+    /// Constructs a new random "explosion" style sample using optional random seed
+    pub fn explosion(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Noise;
@@ -322,9 +331,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "powerup" style sample
-    pub fn powerup() -> Sample {
+    /// Constructs a new random "powerup" style sample using optional random seed
+    pub fn powerup(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         if rand_bool(rng, 1, 1) {
@@ -354,9 +366,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "hit" or "damage" style sample
-    pub fn hit() -> Sample {
+    /// Constructs a new random "hit" or "damage" style sample using optional random seed
+    pub fn hit(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine, WaveType::Noise]);
@@ -378,9 +393,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "jump" style sample
-    pub fn jump() -> Sample {
+    /// Constructs a new random "jump" style sample using optional random seed
+    pub fn jump(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Square;
@@ -402,9 +420,12 @@ impl Sample {
         s
     }
 
-    /// Constructs a new random "blip" or "menu navigation" style sample
-    pub fn blip() -> Sample {
+    /// Constructs a new random "blip" or "menu navigation" style sample using optional random seed
+    pub fn blip(seed: Option<usize>) -> Sample {
         let rng = &mut Prng::new();
+        if let Some(seed) = seed {
+            rng.set_seed(seed);
+        }
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine]);
