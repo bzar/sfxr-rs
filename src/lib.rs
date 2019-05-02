@@ -30,11 +30,11 @@
 //! generator.generate(&mut buffer);
 //! ```
 
-extern crate prng;
-extern crate rng_trait;
+extern crate rand;
 
-use rng_trait::Rng;
-use prng::Prng;
+use rand::{Rng, SeedableRng, FromEntropy};
+use rand::rngs::SmallRng;
+
 
 mod generator;
 
@@ -166,14 +166,14 @@ impl Sample {
 
     /// Changes Sample fields randomly by a little
     pub fn mutate(&mut self) {
-        let rng = &mut Prng::new();
+        let rng = &mut SmallRng::from_entropy();
 
-        fn mutate_f64(rng: &mut Rng, v: &mut f64, min: f64, max: f64) {
+        fn mutate_f64(rng: &mut SmallRng, v: &mut f64, min: f64, max: f64) {
             if rand_bool(rng, 1, 1) {
                 *v = (*v + rand_f64(rng, -0.05, 0.05)).min(max).max(min);
             }
         }
-        fn mutate_f32(rng: &mut Rng, v: &mut f32, min: f32, max: f32) {
+        fn mutate_f32(rng: &mut SmallRng, v: &mut f32, min: f32, max: f32) {
             if rand_bool(rng, 1, 1) {
                 *v = (*v + rand_f32(rng, -0.05, 0.05)).min(max).max(min);
             }
@@ -206,11 +206,14 @@ impl Sample {
     }
 
     /// Constructs a new random "coin" or "item pickup" style sample using optional random seed
-    pub fn pickup(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn pickup(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         s.base_freq = rand_f64(rng, 0.4, 0.9);
@@ -228,11 +231,14 @@ impl Sample {
     }
 
     /// Constructs a new random "shoot" or "laser" style sample using optional random seed
-    pub fn laser(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn laser(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         let wave_types = {
@@ -280,11 +286,14 @@ impl Sample {
     }
 
     /// Constructs a new random "explosion" style sample using optional random seed
-    pub fn explosion(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn explosion(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Noise;
@@ -332,11 +341,14 @@ impl Sample {
     }
 
     /// Constructs a new random "powerup" style sample using optional random seed
-    pub fn powerup(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn powerup(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         if rand_bool(rng, 1, 1) {
@@ -367,11 +379,14 @@ impl Sample {
     }
 
     /// Constructs a new random "hit" or "damage" style sample using optional random seed
-    pub fn hit(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn hit(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine, WaveType::Noise]);
@@ -394,11 +409,14 @@ impl Sample {
     }
 
     /// Constructs a new random "jump" style sample using optional random seed
-    pub fn jump(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn jump(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         s.wave_type = WaveType::Square;
@@ -421,11 +439,14 @@ impl Sample {
     }
 
     /// Constructs a new random "blip" or "menu navigation" style sample using optional random seed
-    pub fn blip(seed: Option<usize>) -> Sample {
-        let rng = &mut Prng::new();
-        if let Some(seed) = seed {
-            rng.set_seed(seed);
-        }
+    pub fn blip(seed: Option<u64>) -> Sample {
+        let rng = &mut {
+            if let Some(seed) = seed {
+                SmallRng::seed_from_u64(seed)
+            } else {
+                SmallRng::from_entropy()
+            }
+        };
         let mut s = Sample::new();
 
         s.wave_type = rand_element(rng, &[WaveType::Square, WaveType::Sine]);
@@ -535,18 +556,18 @@ impl Generator {
 }
 
 /// Generate a random `f32` using `rng` in the range [`from`...`until`).
-fn rand_f32(rng: &mut Rng, from: f32, until: f32) -> f32 {
-    from + (until - from) * rng.next_f32()
+fn rand_f32(rng: &mut SmallRng, from: f32, until: f32) -> f32 {
+    from + (until - from) * rng.gen::<f32>()
 }
 /// Generate a random `f64` using `rng` in the range [`from`...`until`).
-fn rand_f64(rng: &mut Rng, from: f64, until: f64) -> f64 {
-    from + (until - from) * rng.next_f64()
+fn rand_f64(rng: &mut SmallRng, from: f64, until: f64) -> f64 {
+    from + (until - from) * rng.gen::<f64>()
 }
 /// Generate a random `bool` using `rng` with `chance_true`:`chance_false` odds of being true.
-fn rand_bool(rng: &mut Rng, chance_true: u32, chance_false: u32) -> bool {
-    rng.next_u32() % (chance_true + chance_false) < chance_true
+fn rand_bool(rng: &mut SmallRng, chance_true: u32, chance_false: u32) -> bool {
+    rng.gen::<u32>() % (chance_true + chance_false) < chance_true
 }
 /// Pick a random element from `slice` using `rng`.
-fn rand_element<T: Copy>(rng: &mut Rng, slice: &[T]) -> T {
-    slice[rng.next_u32() as usize % slice.len()]
+fn rand_element<T: Copy>(rng: &mut SmallRng, slice: &[T]) -> T {
+    slice[rng.gen::<u32>() as usize % slice.len()]
 }
