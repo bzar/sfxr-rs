@@ -1,6 +1,6 @@
 extern crate rand;
 
-use rand::{Rng, FromEntropy};
+use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
 
 #[derive(PartialEq,Copy,Clone)]
@@ -100,7 +100,7 @@ impl Oscillator {
             arp_time: 0,
             arp_limit: 0,
             arp_mod: 0.0,
-            rng: SmallRng::from_entropy()
+            rng: SmallRng::seed_from_u64(0)
         }
     }
     pub fn reset_noise(&mut self) {
