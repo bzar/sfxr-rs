@@ -165,8 +165,8 @@ impl Sample {
     }
 
     /// Changes Sample fields randomly by a little
-    pub fn mutate(&mut self) {
-        let rng = &mut SmallRng::seed_from_u64(0);
+    pub fn mutate(&mut self, seed: Option<u64>) {
+        let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or(0));
 
         fn mutate_f64(rng: &mut SmallRng, v: &mut f64, min: f64, max: f64) {
             if rand_bool(rng, 1, 1) {
