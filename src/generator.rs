@@ -29,14 +29,14 @@ pub trait Filter {
     fn filter(&mut self, sample: f32) -> f32;
 }
 pub struct FilterIterator<'a> {
-    iter: &'a mut Iterator<Item=f32>,
-    filter: &'a mut Filter
+    iter: &'a mut dyn Iterator<Item=f32>,
+    filter: &'a mut dyn Filter
 }
 pub trait Filterable<'a> {
-    fn chain_filter(&'a mut self, filter: &'a mut Filter) -> FilterIterator<'a>;
+    fn chain_filter(&'a mut self, filter: &'a mut dyn Filter) -> FilterIterator<'a>;
 }
 impl<'a, T: Iterator<Item=f32> > Filterable<'a> for T {
-    fn chain_filter(&'a mut self, filter: &'a mut Filter) -> FilterIterator<'a> {
+    fn chain_filter(&'a mut self, filter: &'a mut dyn Filter) -> FilterIterator<'a> {
         FilterIterator { iter: self, filter }
     }
 }
