@@ -16,3 +16,4 @@ rand = "0.5"
 
 [dev-dependencies]
 sdl2 = "0.31.0"                         # SDL2 bindings for Rust
+cpal = "0.11.0"
