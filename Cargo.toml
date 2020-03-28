@@ -17,3 +17,16 @@ rand = "0.5"
 [dev-dependencies]
 sdl2 = "0.31.0"                         # SDL2 bindings for Rust
 cpal = "0.11.0"
+criterion = "0.3.1"
+
+[[bench]]
+name = "setup"
+harness = false
+
+[[bench]]
+name = "sample"
+harness = false
+
+[[bench]]
+name = "wave_type"
+harness = false
