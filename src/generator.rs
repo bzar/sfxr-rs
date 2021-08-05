@@ -1,5 +1,3 @@
-extern crate rand;
-
 use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
 use std::f32::consts::PI;
