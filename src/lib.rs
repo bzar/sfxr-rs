@@ -30,17 +30,22 @@
 //! generator.generate(&mut buffer);
 //! ```
 
-#![deny(rust_2018_compatibility, rust_2018_idioms, future_incompatible, nonstandard_style, unused)]
+#![deny(
+    rust_2018_compatibility,
+    rust_2018_idioms,
+    future_incompatible,
+    nonstandard_style,
+    unused
+)]
 
-use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
-
+use rand::{Rng, SeedableRng};
 
 mod generator;
 
 pub use generator::WaveType;
 
-use generator::{Envelope, HighLowPassFilter, Phaser, Oscillator, Filterable};
+use generator::{Envelope, Filterable, HighLowPassFilter, Oscillator, Phaser};
 
 /// Defines a sound effect configuration for a Generator
 pub struct Sample {
@@ -97,7 +102,7 @@ pub struct Sample {
     /// Arpeggio interval. Value must be between `0.0` and `1.0`.
     pub arp_speed: f32,
     /// Arpeggio step in frequency. Value must be between `-1.0` and `1.0`.
-    pub arp_mod: f64
+    pub arp_mod: f64,
 }
 
 impl Sample {
@@ -133,35 +138,104 @@ impl Sample {
             repeat_speed: 0.0,
 
             arp_speed: 0.0,
-            arp_mod: 0.0
+            arp_mod: 0.0,
         }
     }
 
     /// Asserts all fields' values to be within correct values
     fn assert_valid(&self) {
-        assert!(self.base_freq >= 0.0 && self.base_freq <= 1.0, "base_freq must be between 0.0 and 1.0");
-        assert!(self.freq_limit >= 0.0 && self.freq_limit <= 1.0, "freq_limit must be between 0.0 and 1.0");
-        assert!(self.freq_ramp >= -1.0 && self.freq_ramp <= 1.0, "freq_ramp must be between -1.0 and 1.0");
-        assert!(self.freq_dramp >= 0.0 && self.freq_dramp <= 1.0, "freq_dramp must be between 0.0 and 1.0");
-        assert!(self.duty >= 0.0 && self.duty <= 1.0, "duty must be between 0.0 and 1.0");
-        assert!(self.duty_ramp >= -1.0 && self.duty_ramp <= 1.0, "duty_ramp must be between -1.0 and 1.0");
-        assert!(self.vib_strength >= 0.0 && self.vib_strength <= 1.0, "vib_strength must be between 0.0 and 1.0");
-        assert!(self.vib_speed >= 0.0 && self.vib_speed <= 1.0, "vib_speed must be between 0.0 and 1.0");
-        assert!(self.vib_delay >= 0.0 && self.vib_delay <= 1.0, "vib_delay must be between 0.0 and 1.0");
-        assert!(self.env_attack >= 0.0 && self.env_attack <= 1.0, "env_attack must be between 0.0 and 1.0");
-        assert!(self.env_sustain >= 0.0 && self.env_sustain <= 1.0, "env_sustain must be between 0.0 and 1.0");
-        assert!(self.env_decay >= 0.0 && self.env_decay <= 1.0, "env_decay must be between 0.0 and 1.0");
-        assert!(self.env_punch >= -1.0 && self.env_punch <= 1.0, "env_punch must be between -1.0 and 1.0");
-        assert!(self.lpf_resonance >= 0.0 && self.lpf_resonance <= 1.0, "lpf_resonance must be between 0.0 and 1.0");
-        assert!(self.lpf_freq >= 0.0 && self.lpf_freq <= 1.0, "lpf_freq must be between 0.0 and 1.0");
-        assert!(self.lpf_ramp >= -1.0 && self.lpf_ramp <= 1.0, "lpf_ramp must be between -1.0 and 1.0");
-        assert!(self.hpf_freq >= 0.0 && self.hpf_freq <= 1.0, "hpf_freq must be between 0.0 and 1.0");
-        assert!(self.hpf_ramp >= -1.0 && self.hpf_ramp <= 1.0, "hpf_ramp must be between -1.0 and 1.0");
-        assert!(self.pha_offset >= -1.0 && self.pha_offset <= 1.0, "pha_offset must be between -1.0 and 1.0");
-        assert!(self.pha_ramp >= -1.0 && self.pha_ramp <= 1.0, "pha_ramp must be between -1.0 and 1.0");
-        assert!(self.repeat_speed >= 0.0 && self.repeat_speed <= 1.0, "repeat_speed must be between 0.0 and 1.0");
-        assert!(self.arp_speed >= 0.0 && self.arp_speed <= 1.0, "arp_speed must be between 0.0 and 1.0");
-        assert!(self.arp_mod >= -1.0 && self.arp_mod <= 1.0, "arp_mod must be between -1.0 and 1.0");
+        assert!(
+            self.base_freq >= 0.0 && self.base_freq <= 1.0,
+            "base_freq must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.freq_limit >= 0.0 && self.freq_limit <= 1.0,
+            "freq_limit must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.freq_ramp >= -1.0 && self.freq_ramp <= 1.0,
+            "freq_ramp must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.freq_dramp >= 0.0 && self.freq_dramp <= 1.0,
+            "freq_dramp must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.duty >= 0.0 && self.duty <= 1.0,
+            "duty must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.duty_ramp >= -1.0 && self.duty_ramp <= 1.0,
+            "duty_ramp must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.vib_strength >= 0.0 && self.vib_strength <= 1.0,
+            "vib_strength must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.vib_speed >= 0.0 && self.vib_speed <= 1.0,
+            "vib_speed must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.vib_delay >= 0.0 && self.vib_delay <= 1.0,
+            "vib_delay must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.env_attack >= 0.0 && self.env_attack <= 1.0,
+            "env_attack must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.env_sustain >= 0.0 && self.env_sustain <= 1.0,
+            "env_sustain must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.env_decay >= 0.0 && self.env_decay <= 1.0,
+            "env_decay must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.env_punch >= -1.0 && self.env_punch <= 1.0,
+            "env_punch must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.lpf_resonance >= 0.0 && self.lpf_resonance <= 1.0,
+            "lpf_resonance must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.lpf_freq >= 0.0 && self.lpf_freq <= 1.0,
+            "lpf_freq must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.lpf_ramp >= -1.0 && self.lpf_ramp <= 1.0,
+            "lpf_ramp must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.hpf_freq >= 0.0 && self.hpf_freq <= 1.0,
+            "hpf_freq must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.hpf_ramp >= -1.0 && self.hpf_ramp <= 1.0,
+            "hpf_ramp must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.pha_offset >= -1.0 && self.pha_offset <= 1.0,
+            "pha_offset must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.pha_ramp >= -1.0 && self.pha_ramp <= 1.0,
+            "pha_ramp must be between -1.0 and 1.0"
+        );
+        assert!(
+            self.repeat_speed >= 0.0 && self.repeat_speed <= 1.0,
+            "repeat_speed must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.arp_speed >= 0.0 && self.arp_speed <= 1.0,
+            "arp_speed must be between 0.0 and 1.0"
+        );
+        assert!(
+            self.arp_mod >= -1.0 && self.arp_mod <= 1.0,
+            "arp_mod must be between -1.0 and 1.0"
+        );
     }
 
     /// Changes Sample fields randomly by a little
@@ -475,12 +549,15 @@ impl Generator {
             self.envelope.advance();
             self.phaser.advance();
 
-            let sample = self.oscillator.by_ref()
+            let sample = self
+                .oscillator
+                .by_ref()
                 .chain_filter(&mut self.envelope)
                 .chain_filter(&mut self.hlpf)
                 .chain_filter(&mut self.phaser)
                 .take(8)
-                .sum::<f32>() / 8.0;
+                .sum::<f32>()
+                / 8.0;
 
             *buffer_value = (sample * self.volume).min(1.0).max(-1.0);
         });
@@ -488,11 +565,18 @@ impl Generator {
     /// Resets the generator to the beginning of the sound effect.
     pub fn reset(&mut self) {
         self.restart();
-        self.envelope.reset(self.sample.env_attack, self.sample.env_sustain, self.sample.env_decay, self.sample.env_punch);
-        self.phaser.reset(self.sample.pha_offset, self.sample.pha_ramp);
+        self.envelope.reset(
+            self.sample.env_attack,
+            self.sample.env_sustain,
+            self.sample.env_decay,
+            self.sample.env_punch,
+        );
+        self.phaser
+            .reset(self.sample.pha_offset, self.sample.pha_ramp);
 
         self.oscillator.reset_phase();
-        self.oscillator.reset_vibrato(self.sample.vib_speed, self.sample.vib_strength);
+        self.oscillator
+            .reset_vibrato(self.sample.vib_speed, self.sample.vib_strength);
         self.oscillator.reset_noise();
 
         self.rep_time = 0;
@@ -504,12 +588,24 @@ impl Generator {
     }
     /// Resets only the oscillator and band pass filter.
     fn restart(&mut self) {
-        self.hlpf.reset(self.sample.lpf_resonance, self.sample.lpf_freq, self.sample.lpf_ramp,
-                        self.sample.hpf_freq, self.sample.hpf_ramp);
-        self.oscillator.reset(self.sample.wave_type, self.sample.base_freq, self.sample.freq_limit,
-                              self.sample.freq_ramp, self.sample.freq_dramp,
-                              self.sample.duty, self.sample.duty_ramp,
-                              self.sample.arp_speed, self.sample.arp_mod);
+        self.hlpf.reset(
+            self.sample.lpf_resonance,
+            self.sample.lpf_freq,
+            self.sample.lpf_ramp,
+            self.sample.hpf_freq,
+            self.sample.hpf_ramp,
+        );
+        self.oscillator.reset(
+            self.sample.wave_type,
+            self.sample.base_freq,
+            self.sample.freq_limit,
+            self.sample.freq_ramp,
+            self.sample.freq_dramp,
+            self.sample.duty,
+            self.sample.duty_ramp,
+            self.sample.arp_speed,
+            self.sample.arp_mod,
+        );
     }
 }
 
