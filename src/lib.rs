@@ -30,7 +30,7 @@
 //! generator.generate(&mut buffer);
 //! ```
 
-extern crate rand;
+#![deny(rust_2018_compatibility, rust_2018_idioms, future_incompatible, nonstandard_style, unused)]
 
 use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;

@@ -1,6 +1,7 @@
 [package]
 name = "sfxr"
 version = "0.1.4"
+edition = "2018"
 authors = ["Teemu Erkkola <teemu.erkkola@iki.fi>"]
 
 description = "Reimplementation of DrPetter's 'sfxr' sound effect generator"
