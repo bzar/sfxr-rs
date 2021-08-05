@@ -2,6 +2,7 @@ extern crate rand;
 
 use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
+use std::f32::consts::PI;
 
 #[derive(PartialEq,Copy,Clone)]
 pub enum WaveType { Square, Triangle, Sine, Noise }
@@ -77,10 +78,6 @@ pub struct Phaser {
     buffer: [f32; 1024]
 }
 
-
-
-const PI: f32 = 3.14159265359;
-
 impl Oscillator {
     pub fn new(wave_type: WaveType) -> Oscillator {
         Oscillator  {
@@ -136,7 +133,7 @@ impl Oscillator {
         self.arp_time = 0;
         self.arp_limit = ((1.0 - arp_speed).powi(2) * 20000.0 + 32.0) as i32;
 
-        if arp_speed == 1.0 {
+        if (arp_speed - 1.0).abs() < f32::EPSILON {
             self.arp_limit = 0;
         }
     }
@@ -163,7 +160,7 @@ impl Iterator for Oscillator {
     fn next(&mut self) -> Option<f32> {
         self.phase += 1;
         if self.phase >= self.period {
-            self.phase = self.phase % self.period;
+            self.phase %= self.period;
             if self.wave_type == WaveType::Noise {
                 self.reset_noise();
             }
