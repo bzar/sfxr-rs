@@ -1,7 +1,3 @@
-extern crate rand;
-extern crate sdl2;
-extern crate sfxr;
-
 use rand::rngs::SmallRng;
 use rand::{FromEntropy, RngCore};
 use sdl2::audio::{AudioCallback, AudioSpecDesired};

@@ -1,6 +1,3 @@
-extern crate criterion;
-extern crate sfxr;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use sfxr::{Generator, Sample, WaveType};
 
