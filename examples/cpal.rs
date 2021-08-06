@@ -1,7 +1,3 @@
-extern crate cpal;
-extern crate rand;
-extern crate sfxr;
-
 use cpal::traits::{EventLoopTrait, HostTrait};
 use rand::rngs::SmallRng;
 use rand::{FromEntropy, RngCore};

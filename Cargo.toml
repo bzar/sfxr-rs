@@ -18,7 +18,7 @@ rand = "0.6"
 [dev-dependencies]
 sdl2 = "0.34.5"                         # SDL2 bindings for Rust
 cpal = "0.11.0"
-criterion = "0.3.5"
+criterion = { version = "0.3.5", features = ["html_reports"] }
 
 [[bench]]
 name = "setup"
