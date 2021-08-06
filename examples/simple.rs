@@ -1,14 +1,14 @@
-extern crate sfxr;
-extern crate sdl2;
 extern crate rand;
+extern crate sdl2;
+extern crate sfxr;
 
+use rand::rngs::SmallRng;
+use rand::{FromEntropy, RngCore};
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::time::Duration;
-use rand::rngs::SmallRng;
-use rand::{RngCore, FromEntropy};
 
 struct Sample {
-    generator: sfxr::Generator
+    generator: sfxr::Generator,
 }
 
 impl AudioCallback for Sample {
@@ -25,16 +25,16 @@ fn main() {
     let desired_spec = AudioSpecDesired {
         freq: Some(44_100),
         channels: Some(1),
-        samples: None
+        samples: None,
     };
 
     let mut sample = sfxr::Sample::new();
     sample.mutate(Some(SmallRng::from_entropy().next_u64()));
     let generator = sfxr::Generator::new(sample);
 
-    let device = audio_subsystem.open_playback(None, &desired_spec, |_spec| {
-        Sample { generator }
-    }).unwrap();
+    let device = audio_subsystem
+        .open_playback(None, &desired_spec, |_spec| Sample { generator })
+        .unwrap();
 
     device.resume();
     std::thread::sleep(Duration::from_millis(1_000));

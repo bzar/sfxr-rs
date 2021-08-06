@@ -1,9 +1,14 @@
-use rand::{Rng, SeedableRng};
 use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 use std::f32::consts::PI;
 
-#[derive(PartialEq,Copy,Clone)]
-pub enum WaveType { Square, Triangle, Sine, Noise }
+#[derive(PartialEq, Copy, Clone)]
+pub enum WaveType {
+    Square,
+    Triangle,
+    Sine,
+    Noise,
+}
 
 pub struct Oscillator {
     wave_type: WaveType,
@@ -22,19 +27,19 @@ pub struct Oscillator {
     vib_amp: f64,
     arp_time: i32,
     arp_limit: i32,
-    arp_mod: f64
+    arp_mod: f64,
 }
 pub trait Filter {
     fn filter(&mut self, sample: f32) -> f32;
 }
 pub struct FilterIterator<'a> {
-    iter: &'a mut dyn Iterator<Item=f32>,
-    filter: &'a mut dyn Filter
+    iter: &'a mut dyn Iterator<Item = f32>,
+    filter: &'a mut dyn Filter,
 }
 pub trait Filterable<'a> {
     fn chain_filter(&'a mut self, filter: &'a mut dyn Filter) -> FilterIterator<'a>;
 }
-impl<'a, T: Iterator<Item=f32> > Filterable<'a> for T {
+impl<'a, T: Iterator<Item = f32>> Filterable<'a> for T {
     fn chain_filter(&'a mut self, filter: &'a mut dyn Filter) -> FilterIterator<'a> {
         FilterIterator { iter: self, filter }
     }
@@ -44,18 +49,23 @@ impl<'a> Iterator for FilterIterator<'a> {
     fn next(&mut self) -> Option<f32> {
         match self.iter.next() {
             Some(v) => Some(self.filter.filter(v)),
-            None => None
+            None => None,
         }
     }
 }
-enum EnvelopeStage { Attack, Sustain, Decay, End }
+enum EnvelopeStage {
+    Attack,
+    Sustain,
+    Decay,
+    End,
+}
 pub struct Envelope {
     stage: EnvelopeStage,
     stage_left: u32,
     attack: u32,
     sustain: u32,
     decay: u32,
-    punch: f32
+    punch: f32,
 }
 
 pub struct HighLowPassFilter {
@@ -73,12 +83,12 @@ pub struct Phaser {
     ipp: usize,
     fphase: f32,
     fdphase: f32,
-    buffer: [f32; 1024]
+    buffer: [f32; 1024],
 }
 
 impl Oscillator {
     pub fn new(wave_type: WaveType) -> Oscillator {
-        Oscillator  {
+        Oscillator {
             wave_type,
             square_duty: 0.5,
             period: 8,
@@ -95,7 +105,7 @@ impl Oscillator {
             arp_time: 0,
             arp_limit: 0,
             arp_mod: 0.0,
-            rng: SmallRng::seed_from_u64(0)
+            rng: SmallRng::seed_from_u64(0),
         }
     }
     pub fn reset_noise(&mut self) {
@@ -111,9 +121,18 @@ impl Oscillator {
         self.vib_speed = vib_speed.powi(2) * 0.01;
         self.vib_amp = vib_strength * 0.5;
     }
-    pub fn reset(&mut self, wave_type: WaveType,
-             base_freq: f64, freq_limit: f64, freq_ramp: f64, freq_dramp: f64,
-             duty: f32, duty_ramp: f32, arp_speed: f32, arp_mod: f64) {
+    pub fn reset(
+        &mut self,
+        wave_type: WaveType,
+        base_freq: f64,
+        freq_limit: f64,
+        freq_ramp: f64,
+        freq_dramp: f64,
+        duty: f32,
+        duty_ramp: f32,
+        arp_speed: f32,
+        arp_mod: f64,
+    ) {
         self.wave_type = wave_type;
         self.fperiod = 100.0 / (base_freq.powi(2) + 0.001);
         self.fmaxperiod = 100.0 / (freq_limit.powi(2) + 0.001);
@@ -166,15 +185,20 @@ impl Iterator for Oscillator {
 
         let fp = self.phase as f32 / self.period as f32;
         let sample = match self.wave_type {
-            WaveType::Square => if fp < self.square_duty { 0.5 } else { -0.5 },
+            WaveType::Square => {
+                if fp < self.square_duty {
+                    0.5
+                } else {
+                    -0.5
+                }
+            }
             WaveType::Triangle => 1.0 - fp * 2.0,
             WaveType::Sine => (fp * 2.0 * PI).sin(),
-            WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize]
+            WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize],
         };
 
         Some(sample)
     }
-
 }
 impl Envelope {
     pub fn new() -> Envelope {
@@ -184,7 +208,7 @@ impl Envelope {
             attack: 0,
             sustain: 0,
             decay: 0,
-            punch: 0.0
+            punch: 0.0,
         }
     }
     pub fn reset(&mut self, attack: f32, sustain: f32, decay: f32, punch: f32) {
@@ -203,7 +227,7 @@ impl Envelope {
                 EnvelopeStage::Attack => EnvelopeStage::Sustain,
                 EnvelopeStage::Sustain => EnvelopeStage::Decay,
                 EnvelopeStage::Decay => EnvelopeStage::End,
-                EnvelopeStage::End => EnvelopeStage:: End
+                EnvelopeStage::End => EnvelopeStage::End,
             };
 
             self.stage_left = self.current_stage_length();
@@ -214,7 +238,7 @@ impl Envelope {
             EnvelopeStage::Attack => self.attack,
             EnvelopeStage::Sustain => self.sustain,
             EnvelopeStage::Decay => self.decay,
-            EnvelopeStage::End => 0
+            EnvelopeStage::End => 0,
         }
     }
     fn volume(&self) -> f32 {
@@ -223,7 +247,7 @@ impl Envelope {
             EnvelopeStage::Attack => 1.0 - dt,
             EnvelopeStage::Sustain => 1.0 + dt * 2.0 * self.punch,
             EnvelopeStage::Decay => dt,
-            EnvelopeStage::End => 0.0
+            EnvelopeStage::End => 0.0,
         }
     }
 }
@@ -243,10 +267,17 @@ impl HighLowPassFilter {
             fltdmp: 0.0,
             fltphp: 0.0,
             flthp: 0.0,
-            flthp_d: 0.0
+            flthp_d: 0.0,
         }
     }
-    pub fn reset(&mut self, lpf_resonance: f32, lpf_freq: f32, lpf_ramp: f32, hpf_freq: f32, hpf_ramp: f32) {
+    pub fn reset(
+        &mut self,
+        lpf_resonance: f32,
+        lpf_freq: f32,
+        lpf_ramp: f32,
+        hpf_freq: f32,
+        hpf_ramp: f32,
+    ) {
         self.fltp = 0.0;
         self.fltdp = 0.0;
         self.fltw = lpf_freq.powi(3) * 0.1;
@@ -291,7 +322,7 @@ impl Phaser {
             ipp: 0,
             fphase: 0.0,
             fdphase: 0.0,
-            buffer: [0.0; 1024]
+            buffer: [0.0; 1024],
         }
     }
     pub fn reset(&mut self, pha_offset: f32, pha_ramp: f32) {
@@ -322,4 +353,3 @@ impl Filter for Phaser {
         result
     }
 }
-
