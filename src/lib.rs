@@ -13,20 +13,25 @@
 //!
 //! Generating a smooth sine wave into a buffer
 //!
-//! ```
+//! ``` rust
+//! use sfxr::Sample;
+//! use sfxr::Generator;
+//! use sfxr::WaveType;
 //! let mut sample = Sample::new();
 //! sample.wave_type = WaveType::Sine;
-//! let generator = Generator::new(sample);
-//! let buffer = [0.0; 44_100];
+//! let mut  generator = Generator::new(sample);
+//! let mut  buffer = [0.0; 44_100];
 //! generator.generate(&mut buffer);
 //! ```
 //!
 //! Generating a random explosion effect
 //!
-//! ```
-//! let sample = Sample::explosion();
-//! let generator = Generator::new(sample);
-//! let buffer = [0.0; 44_100];
+//! ``` rust
+//! use sfxr::Sample;
+//! use sfxr::Generator;
+//! let sample = Sample::explosion(None);
+//! let mut  generator = Generator::new(sample);
+//! let mut  buffer = [0.0; 44_100];
 //! generator.generate(&mut buffer);
 //! ```
 
