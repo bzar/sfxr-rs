@@ -40,7 +40,8 @@
     rust_2018_idioms,
     future_incompatible,
     nonstandard_style,
-    unused
+    unused,
+    clippy::all
 )]
 
 use rand::rngs::SmallRng;
@@ -110,6 +111,7 @@ pub struct Sample {
     pub arp_mod: f64,
 }
 
+#[allow(clippy::new_without_default)]
 impl Sample {
     /// Constructs a new Sample with default settings
     pub fn new() -> Sample {

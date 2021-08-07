@@ -1,5 +1,6 @@
 use rand::rngs::SmallRng;
-use rand::{FromEntropy, RngCore};
+use rand::RngCore;
+use rand::SeedableRng;
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use std::time::Duration;
 

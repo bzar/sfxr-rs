@@ -1,6 +1,7 @@
 use cpal::traits::{EventLoopTrait, HostTrait};
 use rand::rngs::SmallRng;
-use rand::{FromEntropy, RngCore};
+use rand::RngCore;
+use rand::SeedableRng;
 use std::time::Duration;
 use std::{
     sync::{Arc, Mutex},
@@ -12,6 +13,7 @@ pub struct Audio {
     generator: Arc<Mutex<Option<sfxr::Generator>>>,
 }
 
+#[allow(clippy::new_without_default)]
 impl Audio {
     /// Instantiate a new audio object without a generator.
     pub fn new() -> Self {
@@ -58,7 +60,7 @@ impl Audio {
                 let stream_data = match stream_result {
                     Ok(data) => data,
                     Err(err) => {
-                        eprintln!("an error occurred on stream {:?}: {}", stream_id, err);
+                        eprintln!("an error occurred on stream {:?}: {:?}", stream_id, err);
                         return;
                     }
                 };
