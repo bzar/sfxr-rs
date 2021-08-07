@@ -13,7 +13,7 @@ keywords = ["sfx","sound","effect"]
 categories = ["multimedia::audio"]
 
 [dependencies]
-rand = "0.6"
+rand = { version = "0.8", features = ["small_rng"]}
 
 [dev-dependencies]
 sdl2 = "0.34.5"                         # SDL2 bindings for Rust
