@@ -54,6 +54,7 @@ pub use generator::WaveType;
 use generator::{Envelope, Filterable, HighLowPassFilter, Oscillator, Phaser};
 
 /// Defines a sound effect configuration for a Generator
+#[derive(Copy, Clone)]
 pub struct Sample {
     /// Oscillator wave type
     pub wave_type: WaveType,
@@ -613,6 +614,16 @@ impl Generator {
             self.sample.arp_speed,
             self.sample.arp_mod,
         );
+    }
+}
+
+impl Iterator for Generator {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut buffer = [0.0; 1];
+        self.generate(&mut buffer);
+        Some(buffer[0])
     }
 }
 
