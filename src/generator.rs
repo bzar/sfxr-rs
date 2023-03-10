@@ -2,12 +2,13 @@ use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use std::f32::consts::PI;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum WaveType {
     Square,
-    Triangle,
+    Sawtooth,
     Sine,
     Noise,
+    Triangle,
 }
 
 pub struct Oscillator {
@@ -193,6 +194,13 @@ impl Iterator for Oscillator {
                 }
             }
             WaveType::Triangle => 1.0 - fp * 2.0,
+            WaveType::Sawtooth => {
+                if fp < self.square_duty {
+                    -1.0 + 2.0 * fp / self.square_duty
+                } else {
+                    1.0 - 2.0 * (fp - self.square_duty) / (1.0 - self.square_duty)
+                }
+            }
             WaveType::Sine => (fp * 2.0 * PI).sin(),
             WaveType::Noise => self.noise_buffer[(fp * 32.0) as usize],
         };
